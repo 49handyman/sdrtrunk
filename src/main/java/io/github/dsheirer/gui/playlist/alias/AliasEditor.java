@@ -23,6 +23,7 @@
 package io.github.dsheirer.gui.playlist.alias;
 
 import io.github.dsheirer.alias.Alias;
+import io.github.dsheirer.alias.AliasFactory;
 import io.github.dsheirer.alias.AliasModel;
 import io.github.dsheirer.icon.Icon;
 import io.github.dsheirer.playlist.PlaylistManager;
@@ -392,12 +393,13 @@ public class AliasEditor extends SplitPane
             mCloneAliasButton = new Button("Clone");
             mCloneAliasButton.setDisable(true);
             mCloneAliasButton.setMaxWidth(Double.MAX_VALUE);
-//            mCloneButton.setOnAction(event -> {
-//                Channel selected = getAliasTableView().getSelectionModel().getSelectedItem();
-//                Channel copy = selected.copyOf();
-//                mPlaylistManager.getChannelModel().addChannel(copy);
-//                getAliasTableView().getSelectionModel().select(copy);
-//            });
+            mCloneAliasButton.setOnAction(event -> {
+                Alias original = getAliasTableView().getSelectionModel().getSelectedItem();
+                Alias copy = AliasFactory.copyOf(original);
+                mPlaylistManager.getAliasModel().addAlias(copy);
+                getAliasTableView().getSelectionModel().select(copy);
+                getAliasTableView().scrollTo(copy);
+            });
         }
 
         return mCloneAliasButton;

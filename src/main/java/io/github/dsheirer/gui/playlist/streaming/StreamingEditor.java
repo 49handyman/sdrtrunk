@@ -90,6 +90,8 @@ public class StreamingEditor extends SplitPane
     private List<UserFeedBroadcast> mBroadcastifyFeeds = new ArrayList<>();
     private ScrollPane mEditorScrollPane;
     private StreamAliasSelectionEditor mStreamAliasSelectionEditor;
+    private StreamConfigurationEditorModificationListener mStreamConfigurationEditorModificationListener =
+        new StreamConfigurationEditorModificationListener();
 
     /**
      * Constructs an instance
@@ -128,11 +130,21 @@ public class StreamingEditor extends SplitPane
         getItems().addAll(editorBox, getTabPane());
     }
 
-    private void setEditor(AbstractStreamEditor editor)
+    private void setEditor(AbstractStreamEditor<?> editor)
     {
         if(editor != getCurrentEditor())
         {
+            if(mCurrentEditor != null)
+            {
+                mCurrentEditor.modifiedProperty().removeListener(mStreamConfigurationEditorModificationListener);
+            }
+
             mCurrentEditor = editor;
+
+            //Register a listener on the editor modified property to detect configuration changes and refresh the
+            //aliases tab
+            mCurrentEditor.modifiedProperty().addListener(mStreamConfigurationEditorModificationListener);
+
             getEditorScrollPane().setContent(getCurrentEditor());
         }
     }
@@ -487,6 +499,26 @@ public class StreamingEditor extends SplitPane
                     getConfiguredBroadcastTableView().getSelectionModel().select(configuredBroadcast);
                 }
             });
+        }
+    }
+
+    public class StreamConfigurationEditorModificationListener implements ChangeListener<Boolean>
+    {
+        @Override
+        public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue)
+        {
+            //Only fire when the modification property changes from true to false.  Set the selection to null and then
+            //reselect the broadcast to get the streams tab to refresh
+            if(oldValue != null && newValue != null && oldValue && !newValue)
+            {
+                ConfiguredBroadcast configuredBroadcast = getConfiguredBroadcastTableView().getSelectionModel().getSelectedItem();
+
+                if(configuredBroadcast != null)
+                {
+                    getConfiguredBroadcastTableView().getSelectionModel().select(null);
+                    getConfiguredBroadcastTableView().getSelectionModel().select(configuredBroadcast);
+                }
+            }
         }
     }
 }
