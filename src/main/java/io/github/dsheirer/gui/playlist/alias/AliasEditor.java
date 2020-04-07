@@ -197,8 +197,9 @@ public class AliasEditor extends SplitPane
         {
             mAliasListNameComboBox = new ComboBox<>(mPlaylistManager.getAliasModel().aliasListNames());
             mAliasListNameComboBox.getSelectionModel().selectedItemProperty()
-                .addListener((observable, oldValue, newValue) -> getNewAliasButton()
-                    .setDisable(newValue == null || newValue.contentEquals(AliasModel.NO_ALIAS_LIST)));
+                .addListener((observable, oldValue, newValue) -> {
+                    getNewAliasButton().setDisable(newValue == null || newValue.contentEquals(AliasModel.NO_ALIAS_LIST));
+                });
 
             if(mAliasListNameComboBox.getItems().size() > 1)
             {
@@ -443,7 +444,6 @@ public class AliasEditor extends SplitPane
                 if(selected != null)
                 {
                     selected.setAliasListName(getText());
-                    mLog.warn("************ TODO:  - save the alias list here");
                 }
             });
         }
@@ -541,14 +541,12 @@ public class AliasEditor extends SplitPane
         @Override
         public ObservableValue<Integer> call(TableColumn.CellDataFeatures<Alias,Integer> param)
         {
-            Integer count = null;
-
-            if(param.getValue() != null && param.getValue().getAliasIdentifiers().size() > 0)
+            if(param.getValue() != null)
             {
-                count = param.getValue().getAliasIdentifiers().size();
+                return param.getValue().nonAudioIdentifierCountProperty().asObject();
             }
 
-            return new ReadOnlyObjectWrapper<>(count);
+            return null;
         }
     }
 
@@ -686,10 +684,15 @@ public class AliasEditor extends SplitPane
         public AliasFilterMonitor()
         {
             getAliasListNameComboBox().getSelectionModel().selectedItemProperty()
-                .addListener((observable, oldValue, newValue) -> refresh());
+                .addListener((observable, oldValue, newValue) -> {
+                    refresh();
+                });
 
-            getSearchField().textProperty().addListener((observable, oldValue, newValue) -> refresh());
+            getSearchField().textProperty().addListener((observable, oldValue, newValue) -> {
+                refresh();
+            });
         }
+
         public void refresh()
         {
             final String aliasListName = getAliasListNameComboBox().getSelectionModel().getSelectedItem();

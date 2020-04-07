@@ -32,7 +32,6 @@ import io.github.dsheirer.sample.Listener;
 import io.github.dsheirer.settings.SettingsManager;
 import io.github.dsheirer.source.SourceManager;
 import io.github.dsheirer.source.mixer.MixerChannelConfiguration;
-import io.github.dsheirer.source.mixer.MixerManager;
 import jiconfont.icons.font_awesome.FontAwesome;
 import jiconfont.swing.IconFontSwing;
 import net.miginfocom.swing.MigLayout;
@@ -58,7 +57,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.util.List;
 
 public class AudioPanel extends JPanel implements Listener<AudioEvent>
 {
@@ -185,7 +183,7 @@ public class AudioPanel extends JPanel implements Listener<AudioEvent>
                     @Override
                     public void actionPerformed(ActionEvent e)
                     {
-                        MyEventBus.getEventBus().post(new PreferenceEditorViewRequest(PreferenceEditorType.AUDIO_PLAYBACK));
+                        MyEventBus.getEventBus().post(new PreferenceEditorViewRequest(PreferenceEditorType.AUDIO_OUTPUT));
                     }
                 });
                 popup.add(outputMenu);

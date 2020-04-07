@@ -25,15 +25,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.xml.JacksonXmlModule;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import io.github.dsheirer.alias.AliasEvent;
 import io.github.dsheirer.alias.AliasModel;
-import io.github.dsheirer.audio.broadcast.BroadcastEvent;
 import io.github.dsheirer.audio.broadcast.BroadcastModel;
 import io.github.dsheirer.controller.channel.Channel.ChannelType;
 import io.github.dsheirer.controller.channel.ChannelEvent;
 import io.github.dsheirer.controller.channel.ChannelModel;
 import io.github.dsheirer.controller.channel.ChannelProcessingManager;
-import io.github.dsheirer.controller.channel.map.ChannelMapEvent;
 import io.github.dsheirer.controller.channel.map.ChannelMapModel;
 import io.github.dsheirer.icon.IconManager;
 import io.github.dsheirer.preference.UserPreferences;
@@ -101,48 +98,27 @@ public class PlaylistManager implements Listener<ChannelEvent>
         //save the playlist when there are any changes
         mChannelModel.addListener(this);
 
-        mAliasModel.addListener(new Listener<AliasEvent>()
-        {
-            @Override
-            public void receive(AliasEvent t)
-            {
-                //Save the playlist for all alias events
-                schedulePlaylistSave();
-            }
+        mAliasModel.addListener(t -> {
+            //Save the playlist for all alias events
+            schedulePlaylistSave();
         });
 
-        mChannelMapModel.addListener(new Listener<ChannelMapEvent>()
-        {
-            @Override
-            public void receive(ChannelMapEvent t)
-            {
-                //Save the playlist for all channel map events
-                schedulePlaylistSave();
-            }
+        mChannelMapModel.addListener(t -> {
+            //Save the playlist for all channel map events
+            schedulePlaylistSave();
         });
 
-        mBroadcastModel.addListener(new Listener<BroadcastEvent>()
-        {
-            @Override
-            public void receive(BroadcastEvent broadcastEvent)
+        mBroadcastModel.addListener(broadcastEvent -> {
+            switch(broadcastEvent.getEvent())
             {
-                switch(broadcastEvent.getEvent())
-                {
-                    case CONFIGURATION_ADD:
-                    case CONFIGURATION_CHANGE:
-                    case CONFIGURATION_DELETE:
-                        schedulePlaylistSave();
-                        break;
-                    case BROADCASTER_ADD:
-                    case BROADCASTER_QUEUE_CHANGE:
-                    case BROADCASTER_STATE_CHANGE:
-                    case BROADCASTER_STREAMED_COUNT_CHANGE:
-                    case BROADCASTER_AGED_OFF_COUNT_CHANGE:
-                    case BROADCASTER_DELETE:
-                    default:
-                        //Do nothing
-                        break;
-                }
+                case CONFIGURATION_ADD:
+                case CONFIGURATION_CHANGE:
+                case CONFIGURATION_DELETE:
+                    schedulePlaylistSave();
+                    break;
+                default:
+                    //Do nothing
+                    break;
             }
         });
     }

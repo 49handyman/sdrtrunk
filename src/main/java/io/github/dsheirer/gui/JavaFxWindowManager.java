@@ -28,7 +28,7 @@ import io.github.dsheirer.eventbus.MyEventBus;
 import io.github.dsheirer.gui.channelMap.ChannelMapEditor;
 import io.github.dsheirer.gui.channelMap.ChannelMapEditorViewRequest;
 import io.github.dsheirer.gui.preference.PreferenceEditorViewRequest;
-import io.github.dsheirer.gui.preference.PreferencesEditor;
+import io.github.dsheirer.gui.preference.UserPreferencesEditor;
 import io.github.dsheirer.gui.radioreference.LoginDialog;
 import io.github.dsheirer.gui.radioreference.LoginDialogViewRequest;
 import io.github.dsheirer.preference.UserPreferences;
@@ -49,7 +49,7 @@ public class JavaFxWindowManager
     private JFXPanel mJFXPanel;
     private UserPreferences mUserPreferences;
     private ChannelMapModel mChannelMapModel;
-    private PreferencesEditor mPreferencesEditor;
+    private UserPreferencesEditor mUserPreferencesEditor;
     private LoginDialog mLoginDialog;
     private ChannelMapEditor mChannelMapEditor;
 
@@ -81,19 +81,19 @@ public class JavaFxWindowManager
     @Subscribe
     public void process(final PreferenceEditorViewRequest request)
     {
-        if(mPreferencesEditor == null)
+        if(mUserPreferencesEditor == null)
         {
             createJFXPanel();
             Platform.setImplicitExit(false);
             Platform.runLater(() -> {
                 try
                 {
-                    mPreferencesEditor = new PreferencesEditor(mUserPreferences);
+                    mUserPreferencesEditor = new UserPreferencesEditor(mUserPreferences);
 
                     Stage stage = new Stage();
-                    stage.setOnHidden(event -> mPreferencesEditor = null);
-                    mPreferencesEditor.start(stage);
-                    mPreferencesEditor.showEditor(request);
+                    stage.setOnHidden(event -> mUserPreferencesEditor = null);
+                    mUserPreferencesEditor.start(stage);
+                    mUserPreferencesEditor.showEditor(request);
                 }
                 catch(Throwable e)
                 {
@@ -106,11 +106,11 @@ public class JavaFxWindowManager
             Platform.runLater(() -> {
                 try
                 {
-                    Stage stage = mPreferencesEditor.getStage();
+                    Stage stage = mUserPreferencesEditor.getStage();
                     stage.show();
                     stage.toFront();
                     stage.requestFocus();
-                    mPreferencesEditor.showEditor(request);
+                    mUserPreferencesEditor.showEditor(request);
                 }
                 catch(Throwable t)
                 {

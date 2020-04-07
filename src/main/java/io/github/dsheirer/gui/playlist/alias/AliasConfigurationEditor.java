@@ -70,7 +70,10 @@ import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -102,6 +105,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -319,8 +323,8 @@ public class AliasConfigurationEditor extends Editor<Alias>
 
             if(alias != null)
             {
-                alias.setGroup(getGroupField().getText());
                 alias.setName(getNameField().getText());
+                alias.setGroup(getGroupField().getText());
                 alias.setRecordable(getRecordAudioToggleSwitch().isSelected());
                 alias.setColor(ColorUtil.toInteger(getColorPicker().getValue()));
 
@@ -523,8 +527,19 @@ public class AliasConfigurationEditor extends Editor<Alias>
 
                     if(selected != null)
                     {
-                        getActionsList().getItems().remove(selected);
-                        modifiedProperty().set(true);
+                        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                            "Do you want to delete the selected alias action?", ButtonType.NO, ButtonType.YES);
+                        alert.setTitle("Delete Alias Action");
+                        alert.setHeaderText("Are you sure?");
+                        alert.initOwner(((Node)getDeleteActionButton()).getScene().getWindow());
+
+                        Optional<ButtonType> result = alert.showAndWait();
+
+                        if(result.get() == ButtonType.YES)
+                        {
+                            getActionsList().getItems().remove(selected);
+                            modifiedProperty().set(true);
+                        }
                     }
                 }
             });
@@ -603,47 +618,47 @@ public class AliasConfigurationEditor extends Editor<Alias>
             mAddIdentifierButton.setMaxWidth(Double.MAX_VALUE);
             mAddIdentifierButton.setDisable(true);
 
-            Menu talkgroup = new Menu("Talkgroup");
-            for(Protocol protocol: Protocol.TALKGROUP_PROTOCOLS)
-            {
-                talkgroup.getItems().add(new AddTalkgroupItem(protocol));
-            }
-            mAddIdentifierButton.getItems().add(talkgroup);
+            Menu p25Menu = new ProtocolMenu(Protocol.APCO25);
+            p25Menu.getItems().add(new AddTalkgroupItem(Protocol.APCO25));
+            p25Menu.getItems().add(new AddTalkgroupRangeItem(Protocol.APCO25));
+            p25Menu.getItems().add(new AddRadioIdItem(Protocol.APCO25));
+            p25Menu.getItems().add(new AddRadioIdRangeItem(Protocol.APCO25));
+            p25Menu.getItems().add(new SeparatorMenuItem());
+            p25Menu.getItems().add(new AddUserStatusItem());
+            p25Menu.getItems().add(new AddUnitStatusItem());
+            p25Menu.getItems().add(new SeparatorMenuItem());
+            p25Menu.getItems().add(new AddTonesItem("Audio Tones (Phase 2 Only)"));
 
-            Menu talkgroupRange = new Menu("Talkgroup Range");
-            for(Protocol protocol: Protocol.TALKGROUP_PROTOCOLS)
-            {
-                talkgroupRange.getItems().add(new AddTalkgroupRangeItem(protocol));
-            }
-            mAddIdentifierButton.getItems().add(talkgroupRange);
+            Menu fleetsyncMenu = new ProtocolMenu(Protocol.FLEETSYNC);
+            fleetsyncMenu.getItems().add(new AddTalkgroupItem(Protocol.FLEETSYNC));
+            fleetsyncMenu.getItems().add(new AddTalkgroupRangeItem(Protocol.FLEETSYNC));
 
-            mAddIdentifierButton.getItems().add(new SeparatorMenuItem());
+            Menu ltrMenu = new ProtocolMenu(Protocol.LTR);
+            ltrMenu.getItems().add(new AddTalkgroupItem(Protocol.LTR));
+            ltrMenu.getItems().add(new AddTalkgroupRangeItem(Protocol.LTR));
 
-            Menu radioId = new Menu("Radio ID");
-            for(Protocol protocol: Protocol.RADIO_ID_PROTOCOLS)
-            {
-                radioId.getItems().add(new AddRadioIdItem(protocol));
-            }
-            mAddIdentifierButton.getItems().add(radioId);
+            Menu mdcMenu = new ProtocolMenu(Protocol.MDC1200);
+            mdcMenu.getItems().add(new AddTalkgroupItem(Protocol.MDC1200));
+            mdcMenu.getItems().add(new AddTalkgroupRangeItem(Protocol.MDC1200));
 
-            Menu radioIdRange = new Menu("Radio ID Range");
-            for(Protocol protocol: Protocol.RADIO_ID_PROTOCOLS)
-            {
-                radioIdRange.getItems().add(new AddRadioIdRangeItem(protocol));
-            }
-            mAddIdentifierButton.getItems().add(radioIdRange);
+            Menu mptMenu = new ProtocolMenu(Protocol.MPT1327);
+            mptMenu.getItems().add(new AddTalkgroupItem(Protocol.MPT1327));
+            mptMenu.getItems().add(new AddTalkgroupRangeItem(Protocol.MPT1327));
 
-            mAddIdentifierButton.getItems().add(new SeparatorMenuItem());
-            mAddIdentifierButton.getItems().add(new AddUnitStatusItem());
-            mAddIdentifierButton.getItems().add(new AddUserStatusItem());
-            mAddIdentifierButton.getItems().add(new SeparatorMenuItem());
-            Menu tonesMenu = new Menu("Tones");
-            tonesMenu.getItems().add(new AddTonesItem("P25 Phase 2"));
-            mAddIdentifierButton.getItems().add(tonesMenu);
-            mAddIdentifierButton.getItems().add(new SeparatorMenuItem());
-            mAddIdentifierButton.getItems().add(new AddEsnItem());
-            mAddIdentifierButton.getItems().add(new SeparatorMenuItem());
-            mAddIdentifierButton.getItems().add(new AddLojackItem());
+            Menu passportMenu = new ProtocolMenu(Protocol.PASSPORT);
+            passportMenu.getItems().add(new AddTalkgroupItem(Protocol.PASSPORT));
+            passportMenu.getItems().add(new AddTalkgroupRangeItem(Protocol.PASSPORT));
+            passportMenu.getItems().add(new AddRadioIdItem(Protocol.PASSPORT));
+            passportMenu.getItems().add(new AddRadioIdRangeItem(Protocol.PASSPORT));
+
+            Menu taitMenu = new ProtocolMenu(Protocol.TAIT1200);
+            taitMenu.setDisable(true);  //tbd
+
+            Menu lojackMenu = new ProtocolMenu(Protocol.LOJACK);
+            lojackMenu.getItems().add(new AddLojackItem());
+
+            mAddIdentifierButton.getItems().addAll(p25Menu, fleetsyncMenu, ltrMenu, mdcMenu, mptMenu, passportMenu,
+                taitMenu, new SeparatorMenuItem(), lojackMenu);
         }
 
         return mAddIdentifierButton;
@@ -661,8 +676,19 @@ public class AliasConfigurationEditor extends Editor<Alias>
 
                 if(selected != null)
                 {
-                    getIdentifiersList().getItems().remove(selected);
-                    modifiedProperty().set(true);
+                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                        "Do you want to delete the selected alias identifier?", ButtonType.NO, ButtonType.YES);
+                    alert.setTitle("Delete Alias Identifier");
+                    alert.setHeaderText("Are you sure?");
+                    alert.initOwner(((Node)getDeleteIdentifierButton()).getScene().getWindow());
+
+                    Optional<ButtonType> result = alert.showAndWait();
+
+                    if(result.get() == ButtonType.YES)
+                    {
+                        getIdentifiersList().getItems().remove(selected);
+                        modifiedProperty().set(true);
+                    }
                 }
             });
         }
@@ -1078,6 +1104,17 @@ public class AliasConfigurationEditor extends Editor<Alias>
     }
 
     /**
+     * Simple menut that uses the protocol label for the menu label
+     */
+    public class ProtocolMenu extends Menu
+    {
+        public ProtocolMenu(Protocol protocol)
+        {
+            super(protocol.toString());
+        }
+    }
+
+    /**
      * Menu Item for adding a new ESN alias identifier
      */
     public class AddEsnItem extends MenuItem
@@ -1173,7 +1210,7 @@ public class AliasConfigurationEditor extends Editor<Alias>
 
         public AddRadioIdItem(Protocol protocol)
         {
-            super(protocol.toString());
+            super("Radio ID");
             mProtocol = protocol;
             setOnAction(event -> {
                 Radio radioId = new Radio();
@@ -1195,7 +1232,7 @@ public class AliasConfigurationEditor extends Editor<Alias>
 
         public AddRadioIdRangeItem(Protocol protocol)
         {
-            super(protocol.toString());
+            super("Radio ID Range");
             mProtocol = protocol;
             setOnAction(event -> {
                 RadioRange radioRange = new RadioRange();
@@ -1217,7 +1254,7 @@ public class AliasConfigurationEditor extends Editor<Alias>
 
         public AddTalkgroupItem(Protocol protocol)
         {
-            super(protocol.toString());
+            super("Talkgroup");
             mProtocol = protocol;
             setOnAction(event -> {
                 Talkgroup talkgroup = new Talkgroup();
@@ -1239,7 +1276,7 @@ public class AliasConfigurationEditor extends Editor<Alias>
 
         public AddTalkgroupRangeItem(Protocol protocol)
         {
-            super(protocol.toString());
+            super("Talkgroup Range");
             mProtocol = protocol;
             setOnAction(event -> {
                 TalkgroupRange talkgroupRange = new TalkgroupRange();

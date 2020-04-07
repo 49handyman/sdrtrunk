@@ -31,6 +31,7 @@ import io.github.dsheirer.alias.id.broadcast.BroadcastChannel;
 import io.github.dsheirer.alias.id.priority.Priority;
 import io.github.dsheirer.alias.id.record.Record;
 import javafx.beans.Observable;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -39,6 +40,7 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.util.Callback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +65,7 @@ public class Alias
     private BooleanProperty mStreamable = new SimpleBooleanProperty();
     private IntegerProperty mColor = new SimpleIntegerProperty();
     private IntegerProperty mPriority = new SimpleIntegerProperty(Priority.DEFAULT_PRIORITY);
+    private IntegerProperty mNonAudioIdentifierCount = new SimpleIntegerProperty();
     private StringProperty mAliasListName = new SimpleStringProperty();
     private StringProperty mGroup = new SimpleStringProperty();
     private StringProperty mIconName = new SimpleStringProperty();
@@ -75,6 +78,8 @@ public class Alias
      */
     public Alias()
     {
+        //Bind the non-audio identifier count property to the size of a filtered list of alias identifiers
+        mNonAudioIdentifierCount.bind(Bindings.size(new FilteredList<>(mAliasIDs, aliasID -> !aliasID.isAudioIdentifier())));
     }
 
     /**
@@ -87,8 +92,18 @@ public class Alias
     }
 
     /**
+     * Count of non-audio identifiers for this alias
+     */
+    @JsonIgnore
+    public IntegerProperty nonAudioIdentifierCountProperty()
+    {
+        return mNonAudioIdentifierCount;
+    }
+
+    /**
      * Audio playback priority
      */
+    @JsonIgnore
     public IntegerProperty priorityProperty()
     {
         return mPriority;
@@ -97,6 +112,7 @@ public class Alias
     /**
      * Recordable property
      */
+    @JsonIgnore
     public BooleanProperty recordableProperty()
     {
         return mRecordable;
@@ -105,6 +121,7 @@ public class Alias
     /**
      * Streamable property
      */
+    @JsonIgnore
     public BooleanProperty streamableProperty()
     {
         return mStreamable;
@@ -113,6 +130,7 @@ public class Alias
     /**
      * Alias list name property
      */
+    @JsonIgnore
     public StringProperty aliasListNameProperty()
     {
         return mAliasListName;
@@ -121,6 +139,7 @@ public class Alias
     /**
      * Group property
      */
+    @JsonIgnore
     public StringProperty groupProperty()
     {
         return mGroup;
@@ -130,6 +149,7 @@ public class Alias
      * Alias name property
      * @return
      */
+    @JsonIgnore
     public StringProperty nameProperty()
     {
         return mName;
@@ -138,6 +158,7 @@ public class Alias
     /**
      * Alias color value property
      */
+    @JsonIgnore
     public IntegerProperty colorProperty()
     {
         return mColor;
@@ -146,6 +167,7 @@ public class Alias
     /**
      * Icon name property
      */
+    @JsonIgnore
     public StringProperty iconNameProperty()
     {
         return mIconName;
@@ -154,6 +176,7 @@ public class Alias
     /**
      * Alias identifiers list property
      */
+    @JsonIgnore
     public ObservableList<AliasID> aliasIds()
     {
         return mAliasIDs;
@@ -162,6 +185,7 @@ public class Alias
     /**
      * Alias actions list property
      */
+    @JsonIgnore
     public ObservableList<AliasAction> aliasActions()
     {
         return mAliasActions;

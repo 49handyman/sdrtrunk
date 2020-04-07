@@ -21,6 +21,7 @@
  */
 package io.github.dsheirer.controller.channel;
 
+import io.github.dsheirer.alias.AliasModel;
 import io.github.dsheirer.controller.channel.Channel.ChannelType;
 import io.github.dsheirer.controller.channel.ChannelEvent.Event;
 import io.github.dsheirer.sample.Broadcaster;
@@ -58,9 +59,13 @@ public class ChannelModel extends AbstractTableModel implements Listener<Channel
     private ObservableList<Channel> mChannels = FXCollections.observableArrayList(Channel.extractor());
     private ObservableList<Channel> mTrafficChannels = FXCollections.observableArrayList(Channel.extractor());
     private Broadcaster<ChannelEvent> mChannelEventBroadcaster = new Broadcaster();
+    private AliasModel mAliasModel;
 
-    public ChannelModel()
+    public ChannelModel(AliasModel aliasModel)
     {
+        mAliasModel = aliasModel;
+
+        //Register a listener to detect channel changes and broadcast change events to cause playlist save requests
         ChannelListChangeListener changeListener = new ChannelListChangeListener();
         mChannels.addListener(changeListener);
         mTrafficChannels.addListener(changeListener);
@@ -229,6 +234,9 @@ public class ChannelModel extends AbstractTableModel implements Listener<Channel
         {
             case STANDARD:
                 mChannels.add(channel);
+
+                //Make sure the alias model has the alias list referred to by the channel
+                mAliasModel.addAliasList(channel.getAliasListName());
 
                 index = mChannels.size() - 1;
 
@@ -508,14 +516,11 @@ public class ChannelModel extends AbstractTableModel implements Listener<Channel
                 }
                 else if(change.wasUpdated())
                 {
-                    for(Channel channel: change.getList())
+                    for(int x = change.getFrom(); x < change.getTo(); x++)
                     {
-                        mChannelEventBroadcaster.broadcast(new ChannelEvent(channel, Event.NOTIFICATION_CONFIGURATION_CHANGE));
+                        mChannelEventBroadcaster.broadcast(new ChannelEvent(change.getList().get(x),
+                            Event.NOTIFICATION_CONFIGURATION_CHANGE));
                     }
-                }
-                else if (change.wasPermutated())
-                {
-                    System.out.println("Channel Model - Permutation change detected !!!!!");
                 }
             }
         }

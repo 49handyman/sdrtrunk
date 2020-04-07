@@ -24,7 +24,6 @@ package io.github.dsheirer.gui.playlist.channel;
 
 import impl.org.controlsfx.autocompletion.AutoCompletionTextFieldBinding;
 import impl.org.controlsfx.autocompletion.SuggestionProvider;
-import io.github.dsheirer.alias.AliasEvent;
 import io.github.dsheirer.controller.channel.Channel;
 import io.github.dsheirer.gui.playlist.Editor;
 import io.github.dsheirer.module.decode.DecoderType;
@@ -33,11 +32,9 @@ import io.github.dsheirer.module.decode.config.DecodeConfiguration;
 import io.github.dsheirer.module.log.config.EventLogConfiguration;
 import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.record.config.RecordConfiguration;
-import io.github.dsheirer.sample.Listener;
 import io.github.dsheirer.source.config.SourceConfigTuner;
 import io.github.dsheirer.source.config.SourceConfiguration;
 import io.github.dsheirer.source.tuner.TunerModel;
-import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.geometry.HPos;
@@ -57,9 +54,6 @@ import org.controlsfx.control.ToggleSwitch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.List;
-
 /**
  * Channel configuration editor
  */
@@ -69,7 +63,6 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
 
     private PlaylistManager mPlaylistManager;
     protected EditorModificationListener mEditorModificationListener = new EditorModificationListener();
-    private AliasModelChangeListener mAliasModelChangeListener = new AliasModelChangeListener();
     private TextField mSystemField;
     private TextField mSiteField;
     private TextField mNameField;
@@ -88,9 +81,6 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
     public ChannelConfigurationEditor(PlaylistManager playlistManager)
     {
         mPlaylistManager = playlistManager;
-
-        //Listen for alias change events so we can update the alias list combo box
-        mPlaylistManager.getAliasModel().addListener(mAliasModelChangeListener);
 
         setMaxWidth(Double.MAX_VALUE);
 
@@ -115,7 +105,6 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
     @Override
     public void dispose()
     {
-        mPlaylistManager.getAliasModel().removeListener(mAliasModelChangeListener);
     }
 
     public abstract DecoderType getDecoderType();
@@ -466,11 +455,10 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
     {
         if(mAliasListComboBox == null)
         {
-            mAliasListComboBox = new ComboBox<>();
+            mAliasListComboBox = new ComboBox<>(mPlaylistManager.getAliasModel().aliasListNames());
             mAliasListComboBox.setDisable(true);
             mAliasListComboBox.setEditable(true);
             mAliasListComboBox.setMaxWidth(Double.MAX_VALUE);
-            mAliasListComboBox.getItems().addAll(mPlaylistManager.getAliasModel().getListNames());
             mAliasListComboBox.setOnAction(event -> modifiedProperty().set(true));
         }
 
@@ -530,53 +518,6 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
         public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue)
         {
             modifiedProperty().set(true);
-        }
-    }
-
-    /**
-     * Alias list change listener to update the contents of the alias list combo box in this editor
-     */
-    public class AliasModelChangeListener implements Listener<AliasEvent>
-    {
-        @Override
-        public void receive(AliasEvent aliasEvent)
-        {
-            Platform.runLater(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    try
-                    {
-                        List<String> aliasListNames = mPlaylistManager.getAliasModel().getListNames();
-
-                        String selected = getAliasListComboBox().getSelectionModel().getSelectedItem();
-                        boolean modified = modifiedProperty().get();
-
-                        if(selected != null && !aliasListNames.contains(selected))
-                        {
-                            aliasListNames.add(selected);
-                        }
-
-                        Collections.sort(aliasListNames);
-
-                        getAliasListComboBox().getItems().clear();
-                        getAliasListComboBox().getItems().addAll(aliasListNames);
-
-                        if(selected != null)
-                        {
-                            getAliasListComboBox().getSelectionModel().select(selected);
-                        }
-
-                        //Restore the state of the modified flag to what it was before we updated the combo box
-                        modifiedProperty().set(modified);
-                    }
-                    catch(Throwable t)
-                    {
-                        mLog.error("Error refreshing alias list names in channel configuration editor");
-                    }
-                }
-            });
         }
     }
 }

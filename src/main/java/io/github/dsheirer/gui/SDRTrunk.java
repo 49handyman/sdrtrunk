@@ -175,7 +175,7 @@ public class SDRTrunk implements Listener<TunerEvent>
 
         AliasModel aliasModel = new AliasModel();
 
-        mChannelModel = new ChannelModel();
+        mChannelModel = new ChannelModel(aliasModel);
 
         ChannelMapModel channelMapModel = new ChannelMapModel();
 
@@ -409,7 +409,7 @@ public class SDRTrunk implements Listener<TunerEvent>
         viewMenu.add(new JSeparator());
         JMenuItem preferencesItem = new JMenuItem("Preferences");
         preferencesItem.addActionListener(e -> MyEventBus.getEventBus()
-            .post(new PreferenceEditorViewRequest(PreferenceEditorType.AUDIO_PLAYBACK)));
+            .post(new PreferenceEditorViewRequest(PreferenceEditorType.AUDIO_OUTPUT)));
         viewMenu.add(preferencesItem);
 
         menuBar.add(viewMenu);

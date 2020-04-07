@@ -48,9 +48,9 @@ import java.util.Map;
 /**
  * Preferences editor dialog
  */
-public class PreferencesEditor extends Application
+public class UserPreferencesEditor extends Application
 {
-    private final static Logger mLog = LoggerFactory.getLogger(PreferencesEditor.class);
+    private final static Logger mLog = LoggerFactory.getLogger(UserPreferencesEditor.class);
 
     private Map<PreferenceEditorType,Node> mEditors = new HashMap<>();
     private UserPreferences mUserPreferences;
@@ -79,7 +79,7 @@ public class PreferencesEditor extends Application
         return null;
     }
 
-    public PreferencesEditor(UserPreferences userPreferences)
+    public UserPreferencesEditor(UserPreferences userPreferences)
     {
         mUserPreferences = userPreferences;
     }
@@ -200,7 +200,7 @@ public class PreferencesEditor extends Application
             TreeItem<String> treeRoot = new TreeItem<>("Root node");
 
             TreeItem<String> audioItem = new TreeItem<>("Audio");
-            audioItem.getChildren().add(new TreeItem(PreferenceEditorType.AUDIO_PLAYBACK));
+            audioItem.getChildren().add(new TreeItem(PreferenceEditorType.AUDIO_OUTPUT));
             audioItem.getChildren().add(new TreeItem(PreferenceEditorType.AUDIO_RECORD));
             treeRoot.getChildren().add(audioItem);
             audioItem.setExpanded(true);

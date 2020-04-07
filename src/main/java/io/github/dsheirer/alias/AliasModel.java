@@ -27,6 +27,7 @@ import io.github.dsheirer.identifier.configuration.AliasListConfigurationIdentif
 import io.github.dsheirer.sample.Broadcaster;
 import io.github.dsheirer.sample.Listener;
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,6 +63,9 @@ public class AliasModel extends AbstractTableModel
     public AliasModel()
     {
         mAliasListNames.add(NO_ALIAS_LIST);
+
+        //Register a listener to detect alias changes and broadcast change events to cause playlist save requests
+        mAliases.addListener(new AliasListChangeListener());
     }
 
     public ObservableList<Alias> aliasList()
@@ -262,10 +266,9 @@ public class AliasModel extends AbstractTableModel
             if(!mAliasListNames.contains(aliasListName))
             {
                 mAliasListNames.add(aliasListName);
-                Collections.sort(mAliasListNames);
+                FXCollections.sort(mAliasListNames);
             }
         }
-
     }
 
     /**
@@ -354,18 +357,14 @@ public class AliasModel extends AbstractTableModel
         {
             if(alias.hasBroadcastChannel(previousStreamName))
             {
-                mLog.debug("Updating alias: " + alias.getName());
                 for(BroadcastChannel broadcastChannel: alias.getBroadcastChannels())
                 {
-                    mLog.debug("Inspecting Channel: " + broadcastChannel.getChannelName());
                     if(broadcastChannel.getChannelName().contentEquals(previousStreamName))
                     {
-                        mLog.debug("Removing channel:" + broadcastChannel.getChannelName());
                         alias.removeAliasID(broadcastChannel);
 
                         if(!alias.hasBroadcastChannel(updatedStreamName))
                         {
-                            mLog.debug("Adding new channel: " + updatedStreamName);
                             alias.addAliasID(new BroadcastChannel(updatedStreamName));
                         }
                     }
@@ -479,5 +478,41 @@ public class AliasModel extends AbstractTableModel
     public void removeListener(Listener<AliasEvent> listener)
     {
         mAliasEventBroadcaster.removeListener(listener);
+    }
+
+
+    /**
+     * Observable list change listener for both channels and traffic channels lists
+     */
+    public class AliasListChangeListener implements ListChangeListener<Alias>
+    {
+        @Override
+        public void onChanged(ListChangeListener.Change<? extends Alias> change)
+        {
+            while(change.next())
+            {
+                if(change.wasAdded())
+                {
+                    for(Alias alias: change.getAddedSubList())
+                    {
+                        mAliasEventBroadcaster.broadcast(new AliasEvent(alias, AliasEvent.Event.ADD));
+                    }
+                }
+                else if(change.wasRemoved())
+                {
+                    for(Alias alias: change.getRemoved())
+                    {
+                        mAliasEventBroadcaster.broadcast(new AliasEvent(alias, AliasEvent.Event.DELETE));
+                    }
+                }
+                else if(change.wasUpdated())
+                {
+                    for(int x = change.getFrom(); x < change.getTo(); x++)
+                    {
+                        mAliasEventBroadcaster.broadcast(new AliasEvent(change.getList().get(x), AliasEvent.Event.CHANGE));
+                    }
+                }
+            }
+        }
     }
 }
