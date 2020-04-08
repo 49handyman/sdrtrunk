@@ -62,10 +62,10 @@ public class PlaylistManager implements Listener<ChannelEvent>
     private BroadcastModel mBroadcastModel;
     private ChannelModel mChannelModel;
     private ChannelMapModel mChannelMapModel;
+    private ChannelProcessingManager mChannelProcessingManager;
     private IconManager mIconManager;
     private TunerModel mTunerModel;
     private UserPreferences mUserPreferences;
-    private ChannelProcessingManager mChannelProcessingManager;
     private RadioReference mRadioReference;
     private AtomicBoolean mPlaylistSavePending = new AtomicBoolean();
     private ScheduledFuture<?> mPlaylistSaveFuture;
@@ -129,6 +129,14 @@ public class PlaylistManager implements Listener<ChannelEvent>
     public ChannelModel getChannelModel()
     {
         return mChannelModel;
+    }
+
+    /**
+     * Channel processing manager
+     */
+    public ChannelProcessingManager getChannelProcessingManager()
+    {
+        return mChannelProcessingManager;
     }
 
     /**

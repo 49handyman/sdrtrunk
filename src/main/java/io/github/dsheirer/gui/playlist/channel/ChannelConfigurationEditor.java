@@ -26,6 +26,7 @@ import impl.org.controlsfx.autocompletion.AutoCompletionTextFieldBinding;
 import impl.org.controlsfx.autocompletion.SuggestionProvider;
 import io.github.dsheirer.alias.AliasModel;
 import io.github.dsheirer.controller.channel.Channel;
+import io.github.dsheirer.controller.channel.ChannelException;
 import io.github.dsheirer.gui.playlist.Editor;
 import io.github.dsheirer.module.decode.DecoderType;
 import io.github.dsheirer.module.decode.config.AuxDecodeConfiguration;
@@ -43,7 +44,10 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -55,6 +59,9 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import jiconfont.icons.font_awesome.FontAwesome;
+import jiconfont.javafx.IconNode;
 import org.controlsfx.control.ToggleSwitch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +78,7 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
 
     private PlaylistManager mPlaylistManager;
     protected EditorModificationListener mEditorModificationListener = new EditorModificationListener();
+    private Button mPlayButton;
     private TextField mSystemField;
     private TextField mSiteField;
     private TextField mNameField;
@@ -86,6 +94,9 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
     private Spinner<Integer> mAutoStartOrderSpinner;
     private SuggestionProvider<String> mSystemSuggestionProvider;
     private SuggestionProvider<String> mSiteSuggestionProvider;
+    private IconNode mPlayGraphicNode;
+    private IconNode mStopGraphicNode;
+    private ChannelProcessingMonitor mChannelProcessingMonitor = new ChannelProcessingMonitor();
 
     public ChannelConfigurationEditor(PlaylistManager playlistManager)
     {
@@ -94,6 +105,8 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
         setMaxWidth(Double.MAX_VALUE);
 
         HBox hbox = new HBox();
+        hbox.setSpacing(10);
+        hbox.setPadding(new Insets(10,10,10,10));
         hbox.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(getTextFieldPane(), Priority.ALWAYS);
         HBox.setHgrow(getButtonBox(), Priority.NEVER);
@@ -121,20 +134,36 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
     @Override
     public void setItem(Channel channel)
     {
+        if(getItem() != null)
+        {
+            getItem().processingProperty().removeListener(mChannelProcessingMonitor);
+        }
+
         super.setItem(channel);
+
+        if(getItem() != null)
+        {
+            setPlayButtonState(getItem().processingProperty().get());
+            getItem().processingProperty().addListener(mChannelProcessingMonitor);
+        }
 
         refreshAutoCompleteBindings();
 
+        boolean disable = (channel == null);
+
+        getPlayButton().setDisable(disable);
+        getSystemField().setDisable(disable);
+        getSiteField().setDisable(disable);
+        getNameField().setDisable(disable);
+        getAliasListComboBox().setDisable(disable);
+        getNewAliasListButton().setDisable(disable);
+        getAutoStartSwitch().setDisable(disable);
+
         if(channel != null)
         {
-            getSystemField().setDisable(false);
             getSystemField().setText(channel.getSystem());
-            getSiteField().setDisable(false);
             getSiteField().setText(channel.getSite());
-            getNameField().setDisable(false);
             getNameField().setText(channel.getName());
-            getAliasListComboBox().setDisable(false);
-            getNewAliasListButton().setDisable(false);
             String aliasListName = channel.getAliasListName();
 
             if(aliasListName != null)
@@ -151,7 +180,6 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
                 getAliasListComboBox().getSelectionModel().select(null);
             }
 
-            getAutoStartSwitch().setDisable(false);
             getAutoStartSwitch().selectedProperty().set(channel.isAutoStart());
             getAutoStartOrderSpinner().setDisable(!channel.isAutoStart());
             Integer order = channel.getAutoStartOrder();
@@ -189,16 +217,10 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
         }
         else
         {
-            getSystemField().setDisable(true);
             getSystemField().setText(null);
-            getSiteField().setDisable(true);
             getSiteField().setText(null);
-            getNameField().setDisable(true);
             getNameField().setText(null);
-            getAliasListComboBox().setDisable(true);
             getAliasListComboBox().getSelectionModel().select(null);
-            getNewAliasListButton().setDisable(true);
-            getAutoStartSwitch().setDisable(true);
             getAutoStartSwitch().selectedProperty().set(false);
             getAutoStartOrderSpinner().setDisable(true);
             getAutoStartOrderSpinner().getValueFactory().setValue(0);
@@ -261,6 +283,83 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
     protected abstract void setSourceConfiguration(SourceConfiguration config);
     protected abstract void saveSourceConfiguration();
 
+    private Button getPlayButton()
+    {
+        if(mPlayButton == null)
+        {
+            mPlayGraphicNode = new IconNode(FontAwesome.PLAY);
+            mPlayGraphicNode.setFill(Color.GREEN);
+            mPlayGraphicNode.setIconSize(24);
+
+            mStopGraphicNode = new IconNode(FontAwesome.STOP);
+            mStopGraphicNode.setFill(Color.RED);
+            mStopGraphicNode.setIconSize(24);
+
+            mPlayButton = new Button("Play");
+            mPlayButton.setMaxWidth(Double.MAX_VALUE);
+            mPlayButton.setMaxHeight(Double.MAX_VALUE);
+            mPlayButton.setGraphic(mPlayGraphicNode);
+            mPlayButton.setDisable(true);
+            mPlayButton.setOnAction((ActionEvent event) -> {
+                if(getItem() != null)
+                {
+                    if(getItem().processingProperty().get())
+                    {
+                        try
+                        {
+                            mPlaylistManager.getChannelProcessingManager().stop(getItem());
+                        }
+                        catch(ChannelException ce)
+                        {
+                            mLog.error("Error stopping channel [" + getItem().getName() + "] - " + ce.getMessage());
+
+                            Alert alert = new Alert(Alert.AlertType.ERROR, "Error: " + ce.getMessage(), ButtonType.OK);
+                            alert.setTitle("Channel Stop Error");
+                            alert.setHeaderText("Couldn't stop channel");
+                            alert.initOwner(((Node)getPlayButton()).getScene().getWindow());
+                            alert.showAndWait();
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            mPlaylistManager.getChannelProcessingManager().start(getItem());
+                        }
+                        catch(ChannelException ce)
+                        {
+                            mLog.error("Error starting channel [" + getItem().getName() + "] - " + ce.getMessage());
+
+                            Alert alert = new Alert(Alert.AlertType.ERROR, "Error: " + ce.getMessage(), ButtonType.OK);
+                            alert.setTitle("Channel Play Error");
+                            alert.setHeaderText("Couldn't play channel");
+                            alert.initOwner(((Node)getPlayButton()).getScene().getWindow());
+                            alert.showAndWait();
+                        }
+                    }
+                }
+            });
+        }
+
+        return mPlayButton;
+    }
+
+    /**
+     * Toggles the text and graphic of the channel play button to reflect the playing state of the channel
+     */
+    private void setPlayButtonState(boolean playing)
+    {
+        if(playing)
+        {
+            getPlayButton().setText("Stop");
+            getPlayButton().setGraphic(mStopGraphicNode);
+        }
+        else
+        {
+            getPlayButton().setText("Play");
+            getPlayButton().setGraphic(mPlayGraphicNode);
+        }
+    }
 
     private ToggleSwitch getAutoStartSwitch()
     {
@@ -329,70 +428,70 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
         if(mTextFieldPane == null)
         {
             mTextFieldPane = new GridPane();
-            mTextFieldPane.setPadding(new Insets(10, 5, 10,10));
             mTextFieldPane.setVgap(10);
             mTextFieldPane.setHgap(10);
 
+            int row = 0;
+
             Label systemLabel = new Label("System");
             GridPane.setHalignment(systemLabel, HPos.RIGHT);
-            GridPane.setConstraints(systemLabel, 0, 0);
+            GridPane.setConstraints(systemLabel, 0, row);
             mTextFieldPane.getChildren().add(systemLabel);
 
-            GridPane.setConstraints(getSystemField(), 1, 0);
+            GridPane.setConstraints(getSystemField(), 1, row);
             GridPane.setHgrow(getSystemField(), Priority.ALWAYS);
             mTextFieldPane.getChildren().add(getSystemField());
 
+            Label autoStartLabel = new Label("Auto-Start");
+            GridPane.setHalignment(autoStartLabel, HPos.RIGHT);
+            GridPane.setConstraints(autoStartLabel, 2, row);
+            mTextFieldPane.getChildren().add(autoStartLabel);
+
+            GridPane.setConstraints(getAutoStartSwitch(), 3, row);
+            GridPane.setHalignment(getAutoStartSwitch(), HPos.LEFT);
+            mTextFieldPane.getChildren().add(getAutoStartSwitch());
+
+            GridPane.setConstraints(getPlayButton(), 4, row, 1, 2);
+            mTextFieldPane.getChildren().add(getPlayButton());
+
             Label siteLabel = new Label("Site");
             GridPane.setHalignment(siteLabel, HPos.RIGHT);
-            GridPane.setConstraints(siteLabel, 2, 0);
+            GridPane.setConstraints(siteLabel, 0, ++row);
             mTextFieldPane.getChildren().add(siteLabel);
 
-            GridPane.setConstraints(getSiteField(), 3, 0);
+            GridPane.setConstraints(getSiteField(), 1, row);
             GridPane.setHgrow(getSiteField(), Priority.ALWAYS);
             mTextFieldPane.getChildren().add(getSiteField());
 
+            Label autoStartOrderLabel = new Label("Start Order");
+            GridPane.setHalignment(autoStartOrderLabel, HPos.RIGHT);
+            GridPane.setConstraints(autoStartOrderLabel, 2, row);
+            mTextFieldPane.getChildren().add(autoStartOrderLabel);
+
+            GridPane.setConstraints(getAutoStartOrderSpinner(), 3, row);
+            GridPane.setHalignment(getAutoStartOrderSpinner(), HPos.LEFT);
+            mTextFieldPane.getChildren().add(getAutoStartOrderSpinner());
+
             Label nameLabel = new Label("Name");
             GridPane.setHalignment(nameLabel, HPos.RIGHT);
-            GridPane.setConstraints(nameLabel, 0, 1);
+            GridPane.setConstraints(nameLabel, 0, ++row);
             mTextFieldPane.getChildren().add(nameLabel);
 
-            GridPane.setConstraints(getNameField(), 1, 1);
+            GridPane.setConstraints(getNameField(), 1, row);
             GridPane.setHgrow(getNameField(), Priority.ALWAYS);
             mTextFieldPane.getChildren().add(getNameField());
 
             Label aliasListLabel = new Label("Alias List");
             GridPane.setHalignment(aliasListLabel, HPos.RIGHT);
-            GridPane.setConstraints(aliasListLabel, 2, 1);
+            GridPane.setConstraints(aliasListLabel, 2, row);
             mTextFieldPane.getChildren().add(aliasListLabel);
 
-            GridPane.setConstraints(getAliasListComboBox(), 3, 1);
+            GridPane.setConstraints(getAliasListComboBox(), 3, row);
             GridPane.setHgrow(getAliasListComboBox(), Priority.ALWAYS);
             mTextFieldPane.getChildren().add(getAliasListComboBox());
 
-            GridPane.setConstraints(getNewAliasListButton(), 4, 1);
+            GridPane.setConstraints(getNewAliasListButton(), 4, row);
             mTextFieldPane.getChildren().add(getNewAliasListButton());
-
-            Label autoStartLabel = new Label("Auto-Start");
-            Label autoStartOrderLabel = new Label("Auto-Start Order");
-
-            HBox autoStartBox = new HBox();
-            autoStartBox.setSpacing(10);
-            autoStartBox.getChildren().addAll(autoStartLabel, getAutoStartSwitch(), autoStartOrderLabel, getAutoStartOrderSpinner());
-
-            GridPane.setConstraints(autoStartBox, 0, 2, 5, 1);
-            mTextFieldPane.getChildren().add(autoStartBox);
-//
-//            GridPane.setConstraints(getAutoStartSwitch(), 1, 2);
-//            GridPane.setHalignment(getAutoStartSwitch(), HPos.LEFT);
-//            mTextFieldPane.getChildren().add(getAutoStartSwitch());
-//
-//            GridPane.setHalignment(autoStartOrderLabel, HPos.RIGHT);
-//            GridPane.setConstraints(autoStartOrderLabel, 2, 2);
-//            mTextFieldPane.getChildren().add(autoStartOrderLabel);
-//
-//            GridPane.setConstraints(getAutoStartOrderSpinner(), 3, 2);
-//            GridPane.setHalignment(getAutoStartOrderSpinner(), HPos.LEFT);
-//            mTextFieldPane.getChildren().add(getAutoStartOrderSpinner());
         }
 
         return mTextFieldPane;
@@ -477,6 +576,7 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
             Predicate<String> filterPredicate = s -> !s.contentEquals(AliasModel.NO_ALIAS_LIST);
             FilteredList<String> filterecChannelList = new FilteredList<>(mPlaylistManager.getAliasModel().aliasListNames(), filterPredicate);
             mAliasListComboBox = new ComboBox<>(filterecChannelList);
+            mAliasListComboBox.setPrefWidth(150);
             mAliasListComboBox.setDisable(true);
             mAliasListComboBox.setEditable(true);
             mAliasListComboBox.setMaxWidth(Double.MAX_VALUE);
@@ -524,7 +624,6 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
         {
             mButtonBox = new VBox();
             mButtonBox.setSpacing(10);
-            mButtonBox.setPadding(new Insets(10, 10, 10, 5));
             mButtonBox.getChildren().addAll(getSaveButton(), getResetButton());
         }
 
@@ -571,6 +670,19 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
         public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue)
         {
             modifiedProperty().set(true);
+        }
+    }
+
+    public class ChannelProcessingMonitor implements ChangeListener<Boolean>
+    {
+        @Override
+        public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue)
+        {
+            if(getItem() != null && newValue != null)
+            {
+                mLog.debug("Setting play state to playing:" + newValue);
+                setPlayButtonState(newValue);
+            }
         }
     }
 }
