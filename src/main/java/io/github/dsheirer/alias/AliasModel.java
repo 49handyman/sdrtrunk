@@ -62,8 +62,6 @@ public class AliasModel extends AbstractTableModel
 
     public AliasModel()
     {
-        mAliasListNames.add(NO_ALIAS_LIST);
-
         //Register a listener to detect alias changes and broadcast change events to cause playlist save requests
         mAliases.addListener(new AliasListChangeListener());
     }
@@ -268,6 +266,12 @@ public class AliasModel extends AbstractTableModel
                 mAliasListNames.add(aliasListName);
                 FXCollections.sort(mAliasListNames);
             }
+        }
+        else
+        {
+            //This list allows users to view unassigned aliases so that they can move them to a valiad alias list, but
+            // it is not assignable to a channel
+            mAliasListNames.add(NO_ALIAS_LIST);
         }
     }
 

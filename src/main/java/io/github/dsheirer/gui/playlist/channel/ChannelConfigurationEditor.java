@@ -24,6 +24,7 @@ package io.github.dsheirer.gui.playlist.channel;
 
 import impl.org.controlsfx.autocompletion.AutoCompletionTextFieldBinding;
 import impl.org.controlsfx.autocompletion.SuggestionProvider;
+import io.github.dsheirer.alias.AliasModel;
 import io.github.dsheirer.controller.channel.Channel;
 import io.github.dsheirer.gui.playlist.Editor;
 import io.github.dsheirer.module.decode.DecoderType;
@@ -37,6 +38,9 @@ import io.github.dsheirer.source.config.SourceConfiguration;
 import io.github.dsheirer.source.tuner.TunerModel;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.collections.transformation.FilteredList;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
@@ -46,6 +50,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -53,6 +58,9 @@ import javafx.scene.layout.VBox;
 import org.controlsfx.control.ToggleSwitch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * Channel configuration editor
@@ -67,6 +75,7 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
     private TextField mSiteField;
     private TextField mNameField;
     private ComboBox<String> mAliasListComboBox;
+    private Button mNewAliasListButton;
     private GridPane mTextFieldPane;
     private Button mSaveButton;
     private Button mResetButton;
@@ -125,13 +134,14 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
             getNameField().setDisable(false);
             getNameField().setText(channel.getName());
             getAliasListComboBox().setDisable(false);
+            getNewAliasListButton().setDisable(false);
             String aliasListName = channel.getAliasListName();
 
             if(aliasListName != null)
             {
                 if(!getAliasListComboBox().getItems().contains(aliasListName))
                 {
-                    getAliasListComboBox().getItems().add(aliasListName);
+                    mPlaylistManager.getAliasModel().addAliasList(aliasListName);
                 }
 
                 getAliasListComboBox().getSelectionModel().select(aliasListName);
@@ -187,6 +197,7 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
             getNameField().setText(null);
             getAliasListComboBox().setDisable(true);
             getAliasListComboBox().getSelectionModel().select(null);
+            getNewAliasListButton().setDisable(true);
             getAutoStartSwitch().setDisable(true);
             getAutoStartSwitch().selectedProperty().set(false);
             getAutoStartOrderSpinner().setDisable(true);
@@ -269,6 +280,7 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
         if(mAutoStartOrderSpinner == null)
         {
             mAutoStartOrderSpinner = new Spinner();
+            mAutoStartOrderSpinner.setPrefWidth(100);
             mAutoStartOrderSpinner.setDisable(true);
             getAutoStartSwitch().selectedProperty().addListener(new ChangeListener<Boolean>()
             {
@@ -319,7 +331,7 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
             mTextFieldPane = new GridPane();
             mTextFieldPane.setPadding(new Insets(10, 5, 10,10));
             mTextFieldPane.setVgap(10);
-            mTextFieldPane.setHgap(5);
+            mTextFieldPane.setHgap(10);
 
             Label systemLabel = new Label("System");
             GridPane.setHalignment(systemLabel, HPos.RIGHT);
@@ -357,23 +369,30 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
             GridPane.setHgrow(getAliasListComboBox(), Priority.ALWAYS);
             mTextFieldPane.getChildren().add(getAliasListComboBox());
 
+            GridPane.setConstraints(getNewAliasListButton(), 4, 1);
+            mTextFieldPane.getChildren().add(getNewAliasListButton());
+
             Label autoStartLabel = new Label("Auto-Start");
-            GridPane.setHalignment(autoStartLabel, HPos.RIGHT);
-            GridPane.setConstraints(autoStartLabel, 0, 2);
-            mTextFieldPane.getChildren().add(autoStartLabel);
-
-            GridPane.setConstraints(getAutoStartSwitch(), 1, 2);
-            GridPane.setHalignment(getAutoStartSwitch(), HPos.LEFT);
-            mTextFieldPane.getChildren().add(getAutoStartSwitch());
-
             Label autoStartOrderLabel = new Label("Auto-Start Order");
-            GridPane.setHalignment(autoStartOrderLabel, HPos.RIGHT);
-            GridPane.setConstraints(autoStartOrderLabel, 2, 2);
-            mTextFieldPane.getChildren().add(autoStartOrderLabel);
 
-            GridPane.setConstraints(getAutoStartOrderSpinner(), 3, 2);
-            GridPane.setHalignment(getAutoStartOrderSpinner(), HPos.LEFT);
-            mTextFieldPane.getChildren().add(getAutoStartOrderSpinner());
+            HBox autoStartBox = new HBox();
+            autoStartBox.setSpacing(10);
+            autoStartBox.getChildren().addAll(autoStartLabel, getAutoStartSwitch(), autoStartOrderLabel, getAutoStartOrderSpinner());
+
+            GridPane.setConstraints(autoStartBox, 0, 2, 5, 1);
+            mTextFieldPane.getChildren().add(autoStartBox);
+//
+//            GridPane.setConstraints(getAutoStartSwitch(), 1, 2);
+//            GridPane.setHalignment(getAutoStartSwitch(), HPos.LEFT);
+//            mTextFieldPane.getChildren().add(getAutoStartSwitch());
+//
+//            GridPane.setHalignment(autoStartOrderLabel, HPos.RIGHT);
+//            GridPane.setConstraints(autoStartOrderLabel, 2, 2);
+//            mTextFieldPane.getChildren().add(autoStartOrderLabel);
+//
+//            GridPane.setConstraints(getAutoStartOrderSpinner(), 3, 2);
+//            GridPane.setHalignment(getAutoStartOrderSpinner(), HPos.LEFT);
+//            mTextFieldPane.getChildren().add(getAutoStartOrderSpinner());
         }
 
         return mTextFieldPane;
@@ -455,7 +474,9 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
     {
         if(mAliasListComboBox == null)
         {
-            mAliasListComboBox = new ComboBox<>(mPlaylistManager.getAliasModel().aliasListNames());
+            Predicate<String> filterPredicate = s -> !s.contentEquals(AliasModel.NO_ALIAS_LIST);
+            FilteredList<String> filterecChannelList = new FilteredList<>(mPlaylistManager.getAliasModel().aliasListNames(), filterPredicate);
+            mAliasListComboBox = new ComboBox<>(filterecChannelList);
             mAliasListComboBox.setDisable(true);
             mAliasListComboBox.setEditable(true);
             mAliasListComboBox.setMaxWidth(Double.MAX_VALUE);
@@ -463,6 +484,38 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
         }
 
         return mAliasListComboBox;
+    }
+
+    private Button getNewAliasListButton()
+    {
+        if(mNewAliasListButton == null)
+        {
+            mNewAliasListButton = new Button("New Alias List");
+            mNewAliasListButton.setDisable(true);
+            mNewAliasListButton.setOnAction(new EventHandler<ActionEvent>()
+            {
+                @Override
+                public void handle(ActionEvent event)
+                {
+                    TextInputDialog dialog = new TextInputDialog();
+                    dialog.setTitle("Create New Alias List");
+                    dialog.setHeaderText("New Alias List");
+                    dialog.setContentText("Please enter a name?");
+                    Optional<String> result = dialog.showAndWait();
+
+                    String name = result.get();
+
+                    if(name != null && !name.isEmpty())
+                    {
+                        name = name.trim();
+                        mPlaylistManager.getAliasModel().addAliasList(name);
+                        getAliasListComboBox().getSelectionModel().select(name);
+                    }
+                }
+            });
+        }
+
+        return mNewAliasListButton;
     }
 
     private VBox getButtonBox()
