@@ -298,7 +298,6 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
             mPlayButton = new Button("Play");
             mPlayButton.setMaxWidth(Double.MAX_VALUE);
             mPlayButton.setMaxHeight(Double.MAX_VALUE);
-            mPlayButton.setGraphic(mPlayGraphicNode);
             mPlayButton.setDisable(true);
             mPlayButton.setOnAction((ActionEvent event) -> {
                 if(getItem() != null)
