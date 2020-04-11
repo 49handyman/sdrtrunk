@@ -101,14 +101,8 @@ public class StreamingEditor extends SplitPane
     {
         mPlaylistManager = playlistManager;
         mUnknownEditor = new UnknownStreamEditor(mPlaylistManager);
-        mPlaylistManager.getRadioReference().loggedOnProperty().addListener(new ChangeListener<Boolean>()
-        {
-            @Override
-            public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue)
-            {
-                refreshBroadcastifyStreams();
-            }
-        });
+        mPlaylistManager.getRadioReference().loggedOnProperty()
+            .addListener((observable, oldValue, newValue) -> refreshBroadcastifyStreams());
         refreshBroadcastifyStreams();
 
         VBox buttonsBox = new VBox();

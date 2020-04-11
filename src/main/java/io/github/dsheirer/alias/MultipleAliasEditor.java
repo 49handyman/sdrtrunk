@@ -30,6 +30,7 @@ import io.github.dsheirer.gui.editor.Editor;
 import io.github.dsheirer.icon.Icon;
 import io.github.dsheirer.icon.IconListCellRenderer;
 import io.github.dsheirer.icon.IconManager;
+import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.sample.Listener;
 import net.miginfocom.swing.MigLayout;
 import org.slf4j.Logger;
@@ -54,6 +55,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.List;
 
+@Deprecated
 public class MultipleAliasEditor extends Editor<List<Alias>>
         implements Listener<AliasEvent>
 {
@@ -87,10 +89,10 @@ public class MultipleAliasEditor extends Editor<List<Alias>>
     private BroadcastModel mBroadcastModel;
     private IconManager mIconManager;
 
-    public MultipleAliasEditor(AliasModel aliasModel, BroadcastModel broadcastModel, IconManager iconManager)
+    public MultipleAliasEditor(PlaylistManager playlistManager, IconManager iconManager)
     {
-        mAliasModel = aliasModel;
-        mBroadcastModel = broadcastModel;
+        mAliasModel = playlistManager.getAliasModel();
+        mBroadcastModel = playlistManager.getBroadcastModel();
         mIconManager = iconManager;
 
         mAliasModel.addListener(this);

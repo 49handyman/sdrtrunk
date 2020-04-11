@@ -23,6 +23,7 @@ package io.github.dsheirer.controller.channel;
 
 import io.github.dsheirer.alias.AliasModel;
 import io.github.dsheirer.gui.editor.Editor;
+import io.github.dsheirer.playlist.PlaylistManager;
 import net.miginfocom.swing.MigLayout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +48,7 @@ import java.awt.event.ActionListener;
 import java.util.Collections;
 import java.util.List;
 
+@Deprecated
 public class NameConfigurationEditor extends Editor<Channel> implements DocumentListener
 {
     private static final long serialVersionUID = 1L;
@@ -67,10 +69,10 @@ public class NameConfigurationEditor extends Editor<Channel> implements Document
     private JCheckBox mAutoStartCheckBox;
     private JSpinner mAutoStartOrder;
 
-    public NameConfigurationEditor(AliasModel aliasModel, ChannelModel model)
+    public NameConfigurationEditor(PlaylistManager playlistManager)
     {
-        mAliasModel = aliasModel;
-        mChannelModel = model;
+        mAliasModel = playlistManager.getAliasModel();
+        mChannelModel = playlistManager.getChannelModel();
 
         init();
     }

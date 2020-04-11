@@ -72,6 +72,8 @@ public class StreamAliasSelectionEditor extends VBox
     private Button mRemoveAllButton;
     private FilteredList<Alias> mAvailableFilteredList;
     private FilteredList<Alias> mSelectedFilteredList;
+    private AvailableAliasPredicate mAvailableAliasPredicate = new AvailableAliasPredicate();
+    private SelectedAliasPredicate mSelectedAliasPredicate = new SelectedAliasPredicate();
 
     /**
      * Constructs an instance
@@ -120,7 +122,7 @@ public class StreamAliasSelectionEditor extends VBox
         if(mAvailableFilteredList == null)
         {
             mAvailableFilteredList = new FilteredList<>(mPlaylistManager.getAliasModel().aliasList(),
-                new AvailableAliasPredicate(getSelectedStreamName()));
+                mAvailableAliasPredicate);
         }
 
         return mAvailableFilteredList;
@@ -131,7 +133,7 @@ public class StreamAliasSelectionEditor extends VBox
         if(mSelectedFilteredList == null)
         {
             mSelectedFilteredList = new FilteredList<>(mPlaylistManager.getAliasModel().aliasList(),
-                new SelectedAliasPredicate(getSelectedStreamName()));
+                mSelectedAliasPredicate);
         }
 
         return mSelectedFilteredList;
@@ -169,15 +171,22 @@ public class StreamAliasSelectionEditor extends VBox
     }
 
     /**
-     * Updates the filters applied to the available and selected alias lists
+     * Updates the predicate filters applied to the available and selected alias lists
      */
     private void updateListFilters()
     {
         String streamName = getSelectedStreamName();
         String filterText = getSearchField().getText();
 
-        getAvailableFilteredList().setPredicate(new AvailableAliasPredicate(streamName, filterText));
-        getSelectedFilteredList().setPredicate(new SelectedAliasPredicate(streamName, filterText));
+        mAvailableAliasPredicate.setStreamName(streamName);
+        mAvailableAliasPredicate.setFilterText(filterText);
+        mSelectedAliasPredicate.setStreamName(streamName);
+        mSelectedAliasPredicate.setFilterText(filterText);
+
+        getAvailableFilteredList().setPredicate(null);
+        getAvailableFilteredList().setPredicate(mAvailableAliasPredicate);
+        getSelectedFilteredList().setPredicate(null);
+        getSelectedFilteredList().setPredicate(mSelectedAliasPredicate);
     }
 
     /**
@@ -395,20 +404,26 @@ public class StreamAliasSelectionEditor extends VBox
         return mRemoveAllButton;
     }
 
+    /**
+     * Predicate for filtering aliases by stream name and optional filter text
+     */
     public static class AvailableAliasPredicate implements Predicate<Alias>
     {
         private String mStreamName;
         private String mFilterText;
 
-        public AvailableAliasPredicate(String streamName, String filterText)
+        public AvailableAliasPredicate()
         {
-            mStreamName = streamName;
-            mFilterText = (filterText == null || filterText.isEmpty()) ? null : filterText.toLowerCase();
         }
 
-        public AvailableAliasPredicate(String streamName)
+        public void setStreamName(String streamName)
         {
             mStreamName = streamName;
+        }
+
+        public void setFilterText(String filterText)
+        {
+            mFilterText = (filterText == null || filterText.isEmpty()) ? null : filterText.toLowerCase();
         }
 
         @Override
@@ -443,20 +458,26 @@ public class StreamAliasSelectionEditor extends VBox
         }
     }
 
+    /**
+     * Predicate for filtering aliases by stream name and optional filter text
+     */
     public static class SelectedAliasPredicate implements Predicate<Alias>
     {
         private String mStreamName;
         private String mFilterText;
 
-        public SelectedAliasPredicate(String streamName, String filterText)
+        public SelectedAliasPredicate()
         {
-            mStreamName = streamName;
-            mFilterText = (filterText == null || filterText.isEmpty()) ? null : filterText.toLowerCase();
         }
 
-        public SelectedAliasPredicate(String streamName)
+        public void setStreamName(String streamName)
         {
             mStreamName = streamName;
+        }
+
+        public void setFilterText(String filterText)
+        {
+            mFilterText = (filterText == null || filterText.isEmpty()) ? null : filterText.toLowerCase();
         }
 
         @Override

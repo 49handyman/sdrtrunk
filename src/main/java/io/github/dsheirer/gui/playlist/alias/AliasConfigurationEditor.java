@@ -111,6 +111,28 @@ public class AliasConfigurationEditor extends SplitPane
         getItems().addAll(topBox, getAliasItemEditor());
     }
 
+    /**
+     * Request to show the specified alias in the editor.
+     *
+     * Note: this must be called on the FX platform thread
+     * @param alias to show
+     */
+    public void show(Alias alias)
+    {
+        if(alias != null)
+        {
+            String aliasList = alias.getAliasListName();
+
+            if(aliasList == null || aliasList.isEmpty())
+            {
+                aliasList = AliasModel.NO_ALIAS_LIST;
+            }
+
+            getAliasListNameComboBox().getSelectionModel().select(aliasList);
+            getAliasTableView().getSelectionModel().select(alias);
+        }
+    }
+
     private void setAlias(Alias alias)
     {
         //Prompt the user to save if the contents of the current channel editor have been modified

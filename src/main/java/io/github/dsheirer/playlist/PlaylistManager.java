@@ -33,10 +33,12 @@ import io.github.dsheirer.controller.channel.ChannelModel;
 import io.github.dsheirer.controller.channel.ChannelProcessingManager;
 import io.github.dsheirer.controller.channel.map.ChannelMapModel;
 import io.github.dsheirer.icon.IconManager;
+import io.github.dsheirer.module.log.EventLogManager;
 import io.github.dsheirer.preference.UserPreferences;
 import io.github.dsheirer.preference.playlist.PlaylistPreference;
 import io.github.dsheirer.sample.Listener;
 import io.github.dsheirer.service.radioreference.RadioReference;
+import io.github.dsheirer.source.SourceManager;
 import io.github.dsheirer.source.tuner.TunerModel;
 import io.github.dsheirer.util.ThreadPool;
 import org.slf4j.Logger;
@@ -52,6 +54,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Manages all aspects of playlists and related models
+ */
 public class PlaylistManager implements Listener<ChannelEvent>
 {
     private final static Logger mLog = LoggerFactory.getLogger(PlaylistManager.class);
@@ -59,12 +64,13 @@ public class PlaylistManager implements Listener<ChannelEvent>
     public static final int PLAYLIST_CURRENT_VERSION = 4;
 
     private AliasModel mAliasModel;
+    private ChannelMapModel mChannelMapModel = new ChannelMapModel();
+    private IconManager mIconManager;
+
     private BroadcastModel mBroadcastModel;
     private ChannelModel mChannelModel;
-    private ChannelMapModel mChannelMapModel;
     private ChannelProcessingManager mChannelProcessingManager;
-    private IconManager mIconManager;
-    private TunerModel mTunerModel;
+    private SourceManager mSourceManager;
     private UserPreferences mUserPreferences;
     private RadioReference mRadioReference;
     private AtomicBoolean mPlaylistSavePending = new AtomicBoolean();
@@ -72,27 +78,31 @@ public class PlaylistManager implements Listener<ChannelEvent>
     private boolean mPlaylistLoading = false;
 
     /**
-     * Playlist manager - manages all channel configurations, channel maps, and
-     * alias lists and handles loading or persisting to a playlist.xml file
+     * Playlist manager - manages all channel configurations, channel maps, and alias lists and handles loading or
+     * persisting to the current playlist file
      *
-     * Monitors playlist changes to automatically save configuration changes
-     * after they occur.
+     * Monitors playlist changes to automatically save configuration changes after they occur.
      *
-     * @param channelModel
+     * @param userPreferences for user settings
+     * @param sourceManager for access to tuner model
+     * @param eventLogManager for event logging
      */
-    public PlaylistManager(AliasModel aliasModel, BroadcastModel broadcastModel, ChannelModel channelModel,
-                           ChannelMapModel channelMapModel, TunerModel tunerModel, UserPreferences userPreferences,
-                           ChannelProcessingManager channelProcessingManager, IconManager iconManager)
+    public PlaylistManager(UserPreferences userPreferences, SourceManager sourceManager, AliasModel aliasModel,
+                           EventLogManager eventLogManager, IconManager iconManager)
     {
-        mAliasModel = aliasModel;
-        mBroadcastModel = broadcastModel;
-        mChannelModel = channelModel;
-        mChannelMapModel = channelMapModel;
-        mTunerModel = tunerModel;
         mUserPreferences = userPreferences;
-        mChannelProcessingManager = channelProcessingManager;
-        mRadioReference = new RadioReference(mUserPreferences);
+        mSourceManager = sourceManager;
+        mAliasModel = aliasModel;
         mIconManager = iconManager;
+
+        mBroadcastModel = new BroadcastModel(mAliasModel, mIconManager, userPreferences);
+        mRadioReference = new RadioReference(mUserPreferences);
+
+        mChannelModel = new ChannelModel(mAliasModel);
+        mChannelProcessingManager = new ChannelProcessingManager(mChannelMapModel, eventLogManager, mSourceManager,
+            mAliasModel, mUserPreferences);
+        mChannelModel.addListener(mChannelProcessingManager);
+        mChannelProcessingManager.addChannelEventListener(mChannelModel);
 
         //Register for alias, channel and channel map events so that we can
         //save the playlist when there are any changes
@@ -184,7 +194,7 @@ public class PlaylistManager implements Listener<ChannelEvent>
      */
     public TunerModel getTunerModel()
     {
-        return mTunerModel;
+        return mSourceManager.getTunerModel();
     }
 
     /**

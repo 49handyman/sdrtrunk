@@ -21,6 +21,8 @@
  */
 package io.github.dsheirer.alias;
 
+import io.github.dsheirer.alias.id.AliasID;
+import io.github.dsheirer.alias.id.AliasIDType;
 import io.github.dsheirer.alias.id.broadcast.BroadcastChannel;
 import io.github.dsheirer.identifier.IdentifierCollection;
 import io.github.dsheirer.identifier.configuration.AliasListConfigurationIdentifier;
@@ -290,6 +292,34 @@ public class AliasModel extends AbstractTableModel
 
             broadcast(new AliasEvent(alias, AliasEvent.Event.DELETE));
         }
+    }
+
+    /**
+     * Retrieves all aliases that match the alias list and have at least one alias ID of the specified type
+     * @param aliasList to search
+     * @param aliasID type to find
+     * @return list of aliases
+     */
+    public List<Alias> getAliases(String aliasListName, AliasIDType type)
+    {
+        List<Alias> aliases = new ArrayList<>();
+
+        for(Alias alias : mAliases)
+        {
+            if(alias.hasList() && alias.getAliasListName().equalsIgnoreCase(aliasListName))
+            {
+                for(AliasID aliasID: alias.getAliasIdentifiers())
+                {
+                    if(aliasID.getType() == type)
+                    {
+                        aliases.add(alias);
+                        break;
+                    }
+                }
+            }
+        }
+
+        return aliases;
     }
 
     /**

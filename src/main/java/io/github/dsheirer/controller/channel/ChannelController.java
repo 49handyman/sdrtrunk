@@ -20,8 +20,7 @@
 package io.github.dsheirer.controller.channel;
 
 import com.jidesoft.swing.JideSplitPane;
-import io.github.dsheirer.alias.AliasModel;
-import io.github.dsheirer.controller.channel.map.ChannelMapModel;
+import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
 import io.github.dsheirer.preference.swing.JTableColumnWidthMonitor;
 import io.github.dsheirer.source.SourceManager;
@@ -45,6 +44,7 @@ import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+@Deprecated
 public class ChannelController extends JPanel implements ActionListener, ListSelectionListener
 {
     private static final long serialVersionUID = 1L;
@@ -66,13 +66,11 @@ public class ChannelController extends JPanel implements ActionListener, ListSel
     private JButton mCopyChannelButton = new JButton(COPY_CHANNEL);
     private JButton mDeleteChannelButton = new JButton(DELETE_CHANNEL);
 
-    public ChannelController(ChannelModel channelModel, ChannelProcessingManager channelProcessingManager,
-                             ChannelMapModel channelMapModel, SourceManager sourceManager, AliasModel aliasModel,
-                             UserPreferences userPreferences)
+    public ChannelController(PlaylistManager playlistManager, SourceManager sourceManager, UserPreferences userPreferences)
     {
-        mChannelModel = channelModel;
-        mChannelProcessingManager = channelProcessingManager;
-        mEditor = new ChannelEditor(channelModel, channelProcessingManager, channelMapModel, sourceManager, aliasModel);
+        mChannelModel = playlistManager.getChannelModel();
+        mChannelProcessingManager = playlistManager.getChannelProcessingManager();
+        mEditor = new ChannelEditor(playlistManager, sourceManager);
         mChannelModel.addListener(mEditor);
         mChannelProcessingManager.addChannelEventListener(mEditor);
         mUserPreferences = userPreferences;

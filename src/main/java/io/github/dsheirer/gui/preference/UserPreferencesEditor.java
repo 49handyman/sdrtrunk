@@ -20,13 +20,11 @@
 package io.github.dsheirer.gui.preference;
 
 import io.github.dsheirer.preference.UserPreferences;
-import javafx.application.Application;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Control;
 import javafx.scene.control.Label;
@@ -37,7 +35,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import javafx.stage.Window;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +45,7 @@ import java.util.Map;
 /**
  * Preferences editor dialog
  */
-public class UserPreferencesEditor extends Application
+public class UserPreferencesEditor extends HBox
 {
     private final static Logger mLog = LoggerFactory.getLogger(UserPreferencesEditor.class);
 
@@ -60,28 +57,16 @@ public class UserPreferencesEditor extends Application
     private Node mEditor;
     private HBox mButtonsBox;
 
-    public Stage getStage()
-    {
-        try
-        {
-            Window window = getParentBox().getScene().getWindow();
-
-            if(window instanceof Stage)
-            {
-                return (Stage)window;
-            }
-        }
-        catch(Throwable t)
-        {
-            mLog.debug("Error", t);
-        }
-
-        return null;
-    }
-
+    /**
+     * Constructs an instance
+     *
+     * @param userPreferences to edit
+     */
     public UserPreferencesEditor(UserPreferences userPreferences)
     {
         mUserPreferences = userPreferences;
+        HBox.setHgrow(getEditorAndButtonsBox(), Priority.ALWAYS);
+        getChildren().addAll(getEditorSelectionTreeView(), getEditorAndButtonsBox());
     }
 
     private UserPreferences getUserPreferences()
@@ -94,19 +79,10 @@ public class UserPreferencesEditor extends Application
         return mUserPreferences;
     }
 
-    @Override
-    public void start(Stage stage) throws Exception
-    {
-        stage.setTitle("Preferences");
-        Scene scene = new Scene(getParentBox(), 900, 500);
-        stage.setScene(scene);
-        stage.show();
-    }
-
     /**
      * Shows the editor specified in the request by scrolling the editor view tree to the selected item.
      */
-    public void showEditor(PreferenceEditorViewRequest request)
+    public void process(PreferenceEditorViewRequest request)
     {
         TreeItem toSelect = recursivelyFindEditorType(getEditorSelectionTreeView().getRoot(), request.getPreferenceType());
 
@@ -116,6 +92,9 @@ public class UserPreferencesEditor extends Application
         }
     }
 
+    /**
+     * Recursively finds the tree branch that matches the editor type
+     */
     private TreeItem recursivelyFindEditorType(TreeItem parent, PreferenceEditorType type)
     {
         ListIterator<TreeItem> li = parent.getChildren().listIterator();
@@ -140,23 +119,6 @@ public class UserPreferencesEditor extends Application
         }
 
         return null;
-    }
-
-
-    /**
-     * Primary layout for the editor window
-     */
-    private HBox getParentBox()
-    {
-        if(mParentBox == null)
-        {
-            mParentBox = new HBox();
-            mParentBox.getChildren().add(getEditorSelectionTreeView());
-            HBox.setHgrow(getEditorAndButtonsBox(), Priority.ALWAYS);
-            mParentBox.getChildren().add(getEditorAndButtonsBox());
-        }
-
-        return mParentBox;
     }
 
     private VBox getEditorAndButtonsBox()
@@ -251,7 +213,7 @@ public class UserPreferencesEditor extends Application
             mButtonsBox.setMaxWidth(Double.MAX_VALUE);
             Button okButton = new Button("Ok");
             okButton.setOnAction(event -> {
-                Stage stage = (Stage)getParentBox().getScene().getWindow();
+                Stage stage = (Stage)getButtonsBox().getScene().getWindow();
                 stage.close();
             });
             HBox.setMargin(okButton, new Insets(5, 5, 5, 5));
@@ -292,7 +254,6 @@ public class UserPreferencesEditor extends Application
      */
     public class EditorTreeSelectionListener implements ChangeListener
     {
-
         @Override
         public void changed(ObservableValue observable, Object oldValue, Object newValue)
         {
@@ -309,10 +270,5 @@ public class UserPreferencesEditor extends Application
 
             setEditor(PreferenceEditorType.DEFAULT);
         }
-    }
-
-    public static void main(String[] args)
-    {
-        launch(args);
     }
 }

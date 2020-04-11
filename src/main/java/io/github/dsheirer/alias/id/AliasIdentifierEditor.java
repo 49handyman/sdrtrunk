@@ -28,6 +28,7 @@ import io.github.dsheirer.alias.AliasModel;
 import io.github.dsheirer.audio.broadcast.BroadcastModel;
 import io.github.dsheirer.gui.editor.Editor;
 import io.github.dsheirer.gui.editor.EmptyEditor;
+import io.github.dsheirer.playlist.PlaylistManager;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.DefaultListModel;
@@ -66,10 +67,10 @@ public class AliasIdentifierEditor extends Editor<Alias>
     private AliasModel mAliasModel;
     private BroadcastModel mBroadcastModel;
 
-    public AliasIdentifierEditor(AliasModel aliasModel, BroadcastModel broadcastModel)
+    public AliasIdentifierEditor(PlaylistManager playlistManager)
     {
-        mAliasModel = aliasModel;
-        mBroadcastModel = broadcastModel;
+        mAliasModel = playlistManager.getAliasModel();
+        mBroadcastModel = playlistManager.getBroadcastModel();
 
         init();
     }

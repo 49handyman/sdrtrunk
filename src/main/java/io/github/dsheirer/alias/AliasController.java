@@ -21,9 +21,9 @@
 package io.github.dsheirer.alias;
 
 import com.jidesoft.swing.JideSplitPane;
-import io.github.dsheirer.audio.broadcast.BroadcastModel;
 import io.github.dsheirer.gui.editor.Editor;
 import io.github.dsheirer.icon.IconManager;
+import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
 import io.github.dsheirer.preference.swing.JTableColumnWidthMonitor;
 import net.coderazzi.filters.gui.AutoChoices;
@@ -50,6 +50,7 @@ import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 
+@Deprecated
 public class AliasController extends JPanel implements ActionListener, ListSelectionListener
 {
     private static final long serialVersionUID = 1L;
@@ -74,12 +75,11 @@ public class AliasController extends JPanel implements ActionListener, ListSelec
     private IconCellRenderer mIconCellRenderer;
     private JTableColumnWidthMonitor mColumnWidthMonitor;
 
-    public AliasController(AliasModel aliasModel, BroadcastModel broadcastModel, IconManager iconManager,
-                           UserPreferences userPreferences)
+    public AliasController(PlaylistManager playlistManager, IconManager iconManager, UserPreferences userPreferences)
     {
-        mAliasModel = aliasModel;
-        mAliasEditor = new AliasEditor(mAliasModel, broadcastModel, iconManager);
-        mMultipleAliasEditor = new MultipleAliasEditor(mAliasModel, broadcastModel, iconManager);
+        mAliasModel = playlistManager.getAliasModel();
+        mAliasEditor = new AliasEditor(playlistManager, iconManager);
+        mMultipleAliasEditor = new MultipleAliasEditor(playlistManager, iconManager);
         mIconCellRenderer = new IconCellRenderer(iconManager);
         mUserPreferences = userPreferences;
 

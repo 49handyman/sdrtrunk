@@ -20,13 +20,13 @@
 package io.github.dsheirer.controller.channel;
 
 import com.jidesoft.swing.JideTabbedPane;
-import io.github.dsheirer.alias.AliasModel;
 import io.github.dsheirer.controller.channel.map.ChannelMapModel;
 import io.github.dsheirer.gui.editor.Editor;
 import io.github.dsheirer.gui.editor.EditorValidationException;
 import io.github.dsheirer.module.decode.AuxDecodeConfigurationEditor;
 import io.github.dsheirer.module.decode.DecodeConfigurationEditor;
 import io.github.dsheirer.module.log.EventLogConfigurationEditor;
+import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.record.RecordConfigurationEditor;
 import io.github.dsheirer.sample.Listener;
 import io.github.dsheirer.source.SourceConfigurationEditor;
@@ -40,6 +40,7 @@ import java.awt.Color;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+@Deprecated
 public class ChannelEditor extends Editor<Channel> implements ActionListener, Listener<ChannelEvent>
 {
     private static final long serialVersionUID = 1L;
@@ -65,17 +66,13 @@ public class ChannelEditor extends Editor<Channel> implements ActionListener, Li
 
     private boolean mChannelStartRequested = false;
 
-    public ChannelEditor(ChannelModel channelModel,
-                         ChannelProcessingManager channelProcessingManager,
-                         ChannelMapModel channelMapModel,
-                         SourceManager sourceManager,
-                         AliasModel aliasModel)
+    public ChannelEditor(PlaylistManager playlistManager, SourceManager sourceManager)
     {
-        mChannelModel = channelModel;
-        mChannelProcessingManager = channelProcessingManager;
-        mChannelMapModel = channelMapModel;
+        mChannelModel = playlistManager.getChannelModel();
+        mChannelProcessingManager = playlistManager.getChannelProcessingManager();
+        mChannelMapModel = playlistManager.getChannelMapModel();
         mSourceManager = sourceManager;
-        mNameConfigurationEditor = new NameConfigurationEditor(aliasModel, mChannelModel);
+        mNameConfigurationEditor = new NameConfigurationEditor(playlistManager);
 
         init();
     }

@@ -96,7 +96,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Callback;
 import jiconfont.icons.font_awesome.FontAwesome;
-import jiconfont.javafx.IconFontFX;
 import jiconfont.javafx.IconNode;
 import org.controlsfx.control.ToggleSwitch;
 import org.slf4j.Logger;
@@ -164,8 +163,6 @@ public class AliasItemEditor extends Editor<Alias>
         mUserPreferences = userPreferences;
         MyEventBus.getEventBus().register(this);
 
-        IconFontFX.register(jiconfont.icons.font_awesome.FontAwesome.getIconFont());
-
         setMaxWidth(Double.MAX_VALUE);
 
         VBox vbox = new VBox();
@@ -189,7 +186,6 @@ public class AliasItemEditor extends Editor<Alias>
     @Subscribe
     public void preferenceUpdated(PreferenceType preferenceType)
     {
-        mLog.debug("Preference updated: " + preferenceType);
         if(preferenceType == PreferenceType.TALKGROUP_FORMAT)
         {
             //When the talkgroup format changes, refresh any alias identifiers in the identifier list so that the

@@ -27,10 +27,7 @@ import io.github.dsheirer.controller.channel.map.ChannelMapModel;
 import io.github.dsheirer.controller.channel.map.ChannelRange;
 import io.github.dsheirer.gui.control.IntegerTextField;
 import io.github.dsheirer.gui.playlist.Editor;
-import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.HPos;
@@ -38,7 +35,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
@@ -57,7 +53,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
-import javafx.stage.Stage;
 import javafx.util.Callback;
 
 import java.util.Optional;
@@ -65,10 +60,9 @@ import java.util.Optional;
 /**
  * JavaFX editor for channel maps
  */
-public class ChannelMapEditor extends Application
+public class ChannelMapEditor extends SplitPane
 {
     private static final String COPY_NAME = " (copy)";
-    private Stage mStage;
     private ChannelMapModel mChannelMapModel;
     private SplitPane mSplitPane;
     private MapEditor mMapEditor;
@@ -93,56 +87,8 @@ public class ChannelMapEditor extends Application
     public ChannelMapEditor(ChannelMapModel channelMapModel)
     {
         mChannelMapModel = channelMapModel;
-    }
-
-    /**
-     * Constructor for testing.  Do not use.
-     */
-    public ChannelMapEditor()
-    {
-        this(new ChannelMapModel());
-
-        ChannelMap channelMap1 = new ChannelMap("Test Map 1");
-        channelMap1.addRange(new ChannelRange(1,199,150000000, 12500));
-        channelMap1.addRange(new ChannelRange(200,299,160000000, 25000));
-        channelMap1.addRange(new ChannelRange(300,399,170000000, 12500));
-        channelMap1.addRange(new ChannelRange(400,499,180000000, 25000));
-        mChannelMapModel.addChannelMap(channelMap1);
-
-        ChannelMap channelMap2 = new ChannelMap("Test Map 2");
-        channelMap2.addRange(new ChannelRange(1,199,450000000, 12500));
-        channelMap2.addRange(new ChannelRange(200,299,460000000, 25000));
-        channelMap2.addRange(new ChannelRange(300,399,470000000, 12500));
-        channelMap2.addRange(new ChannelRange(400,499,480000000, 25000));
-        mChannelMapModel.addChannelMap(channelMap2);
-    }
-
-    /**
-     * Main method for launching the editor
-     */
-    @Override
-    public void start(Stage stage) throws Exception
-    {
-        mStage = stage;
-        mStage.setTitle("Channel Map Editor");
-        Scene scene = new Scene(getSplitPane(), 500, 500);
-        mStage.setScene(scene);
-        mStage.show();
-    }
-
-    /**
-     * Split pane for the three components of the editor
-     */
-    private SplitPane getSplitPane()
-    {
-        if(mSplitPane == null)
-        {
-            mSplitPane = new SplitPane();
-            mSplitPane.setOrientation(Orientation.VERTICAL);
-            mSplitPane.getItems().addAll(getChannelMapManagerBox(), getMapEditor(), getChannelRangePane());
-        }
-
-        return mSplitPane;
+        setOrientation(Orientation.VERTICAL);
+        getItems().addAll(getChannelMapManagerBox(), getMapEditor(), getChannelRangePane());
     }
 
     /**
@@ -674,38 +620,34 @@ public class ChannelMapEditor extends Application
 
                 mChannelRangeTableView.getColumns().addAll(firstColumn, lastColumn, baseColumn, stepColumn);
 
-                mChannelRangeTableView.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<ChannelRange>()
-                {
-                    @Override
-                    public void changed(ObservableValue<? extends ChannelRange> observable, ChannelRange oldValue, ChannelRange selected)
+                mChannelRangeTableView.getSelectionModel().selectedItemProperty()
+                    .addListener((observable, oldValue, selected) -> {
+                    getFirstField().setDisable(selected == null);
+                    getLastField().setDisable(selected == null);
+                    getBaseFrequencyField().setDisable(selected == null);
+                    getStepSizeField().setDisable(selected == null);
+
+                    //Capture the current modified state and reapply it after updating the editor controls
+                    boolean modified = modifiedProperty().get();
+
+                    if(selected != null)
                     {
-                        getFirstField().setDisable(selected == null);
-                        getLastField().setDisable(selected == null);
-                        getBaseFrequencyField().setDisable(selected == null);
-                        getStepSizeField().setDisable(selected == null);
-
-                        //Capture the current modified state and reapply it after updating the editor controls
-                        boolean modified = modifiedProperty().get();
-
-                        if(selected != null)
-                        {
-                            getFirstField().set(selected.getFirstChannelNumber());
-                            getLastField().set(selected.getLastChannelNumber());
-                            getBaseFrequencyField().set(selected.getBaseFrequency());
-                            getStepSizeField().set(selected.getStepSize());
-                        }
-                        else
-                        {
-                            getFirstField().setText("");
-                            getLastField().setText("");
-                            getBaseFrequencyField().setText("");
-                            getStepSizeField().setText("");
-                        }
-
-                        updateChannelRangeButtons();
-
-                        modifiedProperty().set(modified);
+                        getFirstField().set(selected.getFirstChannelNumber());
+                        getLastField().set(selected.getLastChannelNumber());
+                        getBaseFrequencyField().set(selected.getBaseFrequency());
+                        getStepSizeField().set(selected.getStepSize());
                     }
+                    else
+                    {
+                        getFirstField().setText("");
+                        getLastField().setText("");
+                        getBaseFrequencyField().setText("");
+                        getStepSizeField().setText("");
+                    }
+
+                    updateChannelRangeButtons();
+
+                    modifiedProperty().set(modified);
                 });
             }
 
@@ -861,19 +803,11 @@ public class ChannelMapEditor extends Application
     }
 
     /**
-     * Shows this dialog if it is either iconified or behind other windows
-     *
-     * @param channelMapName to show (optional - can be null)
+     * Processes a request to show/edit a channel map
      */
-    public void show(String channelMapName)
+    public void process(ChannelMapEditorViewRequest request)
     {
-        if(mStage.isIconified())
-        {
-            mStage.setIconified(false);
-        }
-        mStage.show();
-        mStage.requestFocus();
-        mStage.toFront();
+        String channelMapName = request.getChannelMapName();
 
         if(channelMapName != null)
         {
@@ -886,10 +820,5 @@ public class ChannelMapEditor extends Application
                 }
             }
         }
-    }
-
-    public static void main(String[] args)
-    {
-        launch(args);
     }
 }

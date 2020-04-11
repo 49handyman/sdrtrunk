@@ -22,8 +22,7 @@
 
 package io.github.dsheirer.gui.playlist.radioreference;
 
-import io.github.dsheirer.gui.JavaFxWindowManager;
-import io.github.dsheirer.gui.radioreference.LoginDialogViewRequest;
+import io.github.dsheirer.gui.radioreference.LoginDialog;
 import io.github.dsheirer.preference.UserPreferences;
 import io.github.dsheirer.preference.radioreference.RadioReferencePreference;
 import io.github.dsheirer.rrapi.RadioReferenceException;
@@ -43,7 +42,6 @@ import io.github.dsheirer.rrapi.type.System;
 import io.github.dsheirer.rrapi.type.Tag;
 import io.github.dsheirer.rrapi.type.Type;
 import io.github.dsheirer.rrapi.type.UserInfo;
-import io.github.dsheirer.sample.Listener;
 import io.github.dsheirer.service.radioreference.RadioReference;
 import io.github.dsheirer.util.ThreadPool;
 import javafx.application.Platform;
@@ -70,7 +68,6 @@ import javafx.scene.paint.Color;
 import javafx.util.Callback;
 import javafx.util.StringConverter;
 import jiconfont.icons.font_awesome.FontAwesome;
-import jiconfont.javafx.IconFontFX;
 import jiconfont.javafx.IconNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,8 +77,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 
-public class RadioReferenceEditor extends BorderPane implements Listener<AuthorizationInformation>
+public class RadioReferenceEditor extends BorderPane implements Consumer<AuthorizationInformation>
 {
     private static final Logger mLog = LoggerFactory.getLogger(RadioReferenceEditor.class);
     public static final String AGENCY_LABEL = "Agency:";
@@ -89,7 +87,6 @@ public class RadioReferenceEditor extends BorderPane implements Listener<Authori
 
     private UserPreferences mUserPreferences;
     private RadioReference mRadioReference;
-    private JavaFxWindowManager mJavaFxWindowManager;
     private HBox mTopBox;
     private HBox mCredentialsBox;
     private TextField mUserNameText;
@@ -116,13 +113,10 @@ public class RadioReferenceEditor extends BorderPane implements Listener<Authori
     private FrequencyTableView mFrequencyTableView;
     private TrunkedSystemView mTrunkedSystemView;
 
-    public RadioReferenceEditor(UserPreferences userPreferences, RadioReference radioReference, JavaFxWindowManager manager)
+    public RadioReferenceEditor(UserPreferences userPreferences, RadioReference radioReference)
     {
         mUserPreferences = userPreferences;
         mRadioReference = radioReference;
-        mJavaFxWindowManager = manager;
-
-        IconFontFX.register(jiconfont.icons.font_awesome.FontAwesome.getIconFont());
 
         setTop(getTopBox());
         setCenter(getSplitPane());
@@ -701,7 +695,9 @@ public class RadioReferenceEditor extends BorderPane implements Listener<Authori
             IconNode configureIcon = new IconNode(FontAwesome.COG);
             configureIcon.setFill(Color.GRAY);
             mLoginButton.setGraphic(configureIcon);
-            mLoginButton.setOnAction(event -> mJavaFxWindowManager.process(new LoginDialogViewRequest(RadioReferenceEditor.this::receive)));
+            mLoginButton.setOnAction(event -> {
+                new LoginDialog(mUserPreferences).showAndWait().ifPresent(this);
+            });
         }
 
         return mLoginButton;
@@ -1053,19 +1049,21 @@ public class RadioReferenceEditor extends BorderPane implements Listener<Authori
     }
 
     /**
-     * Callback method for the LoginEditor to receive updated user credentials
-     * @param authorizationInformation with user credentials
+     * Consumer interface method for receiving login credentials
      */
     @Override
-    public void receive(AuthorizationInformation authorizationInformation)
+    public void accept(AuthorizationInformation authorizationInformation)
     {
-        mRadioReference.setAuthorizationInformation(authorizationInformation);
-
-        if(mRadioReference.hasCredentials())
+        if(authorizationInformation != null)
         {
-            checkAccount();
-            refreshLookupTables();
-            refreshCountries();
+            mRadioReference.setAuthorizationInformation(authorizationInformation);
+
+            if(mRadioReference.hasCredentials())
+            {
+                checkAccount();
+                refreshLookupTables();
+                refreshCountries();
+            }
         }
     }
 

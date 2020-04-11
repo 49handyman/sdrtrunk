@@ -23,18 +23,32 @@
 package io.github.dsheirer.gui;
 
 import com.google.common.eventbus.Subscribe;
-import io.github.dsheirer.controller.channel.map.ChannelMapModel;
+import io.github.dsheirer.alias.AliasModel;
+import io.github.dsheirer.controller.channel.map.ChannelMap;
+import io.github.dsheirer.controller.channel.map.ChannelRange;
 import io.github.dsheirer.eventbus.MyEventBus;
 import io.github.dsheirer.gui.channelMap.ChannelMapEditor;
 import io.github.dsheirer.gui.channelMap.ChannelMapEditorViewRequest;
+import io.github.dsheirer.gui.playlist.PlaylistEditor;
+import io.github.dsheirer.gui.playlist.PlaylistEditorRequest;
+import io.github.dsheirer.gui.playlist.ViewPlaylistRequest;
+import io.github.dsheirer.gui.preference.PreferenceEditorType;
 import io.github.dsheirer.gui.preference.PreferenceEditorViewRequest;
 import io.github.dsheirer.gui.preference.UserPreferencesEditor;
-import io.github.dsheirer.gui.radioreference.LoginDialog;
-import io.github.dsheirer.gui.radioreference.LoginDialogViewRequest;
+import io.github.dsheirer.icon.IconManager;
+import io.github.dsheirer.module.log.EventLogManager;
+import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
+import io.github.dsheirer.settings.SettingsManager;
+import io.github.dsheirer.source.SourceManager;
+import io.github.dsheirer.source.tuner.TunerModel;
+import io.github.dsheirer.source.tuner.configuration.TunerConfigurationModel;
+import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
+import javafx.scene.Scene;
 import javafx.stage.Stage;
+import jiconfont.javafx.IconFontFX;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,26 +56,80 @@ import org.slf4j.LoggerFactory;
  * Java FX window manager.  Handles all secondary Java FX windows that are used within this primarily
  * Swing application.
  */
-public class JavaFxWindowManager
+public class JavaFxWindowManager extends Application
 {
     private final static Logger mLog = LoggerFactory.getLogger(JavaFxWindowManager.class);
 
-    private JFXPanel mJFXPanel;
-    private UserPreferences mUserPreferences;
-    private ChannelMapModel mChannelMapModel;
-    private UserPreferencesEditor mUserPreferencesEditor;
-    private LoginDialog mLoginDialog;
-    private ChannelMapEditor mChannelMapEditor;
+    public static final String CHANNEL_MAP_EDITOR = "channelmap";
+    public static final String PLAYLIST_EDITOR = "playlist";
+    public static final String USER_PREFERENCES_EDITOR = "preferences";
 
-    public JavaFxWindowManager(UserPreferences userPreferences, ChannelMapModel channelMapModel)
+    private JFXPanel mJFXPanel;
+    private PlaylistManager mPlaylistManager;
+    private ChannelMapEditor mChannelMapEditor;
+    private PlaylistEditor mPlaylistEditor;
+    private UserPreferences mUserPreferences;
+    private UserPreferencesEditor mUserPreferencesEditor;
+
+    private Stage mChannelMapStage;
+    private Stage mPlaylistStage;
+    private Stage mUserPreferencesStage;
+
+    /**
+     * Constructs an instance.  Note: this constructor is used for Swing applications.
+     */
+    public JavaFxWindowManager(UserPreferences userPreferences, PlaylistManager playlistManager)
     {
         mUserPreferences = userPreferences;
-        mChannelMapModel = channelMapModel;
+        mPlaylistManager = playlistManager;
 
-        //Register this class to receive events via each method annotated with @Subscribe
-        MyEventBus.getEventBus().register(this);
+        setup();
     }
 
+    /**
+     * Constructs an instance.  Note: this constructor is used for standalone JavaFX application testing
+     */
+    public JavaFxWindowManager()
+    {
+        mUserPreferences = new UserPreferences();
+        AliasModel aliasModel = new AliasModel();
+        TunerConfigurationModel tunerConfigurationModel = new TunerConfigurationModel();
+        TunerModel tunerModel = new TunerModel(tunerConfigurationModel);
+        SourceManager sourceManager = new SourceManager(tunerModel, new SettingsManager(tunerConfigurationModel),
+            mUserPreferences);
+        EventLogManager eventLogManager = new EventLogManager(aliasModel, mUserPreferences);
+        mPlaylistManager = new PlaylistManager(mUserPreferences, sourceManager, aliasModel, eventLogManager, new IconManager());
+        mPlaylistManager.init();
+        setup();
+    }
+
+    private void setup()
+    {
+        //Register this class to receive events via each method annotated with @Subscribe
+        MyEventBus.getEventBus().register(this);
+
+        //Register JavaFX icon fonts
+        IconFontFX.register(jiconfont.icons.font_awesome.FontAwesome.getIconFont());
+    }
+
+    /**
+     * Executes the runnable on the JavaFX application thread
+     */
+    private void execute(Runnable runnable)
+    {
+        if(Platform.isFxApplicationThread())
+        {
+            runnable.run();
+        }
+        else
+        {
+            Platform.runLater(runnable);
+        }
+    }
+
+    /**
+     * Creates a JavaFX panel for Swing application compatibility
+     */
     private void createJFXPanel()
     {
         if(mJFXPanel == null)
@@ -78,109 +146,203 @@ public class JavaFxWindowManager
         Platform.exit();
     }
 
-    @Subscribe
-    public void process(final PreferenceEditorViewRequest request)
+    /**
+     * Lazy construct and access the playlist editor
+     */
+    public PlaylistEditor getPlaylistEditor()
     {
-        if(mUserPreferencesEditor == null)
+        if(mPlaylistEditor == null)
         {
-            createJFXPanel();
-            Platform.setImplicitExit(false);
-            Platform.runLater(() -> {
-                try
-                {
-                    mUserPreferencesEditor = new UserPreferencesEditor(mUserPreferences);
+            mPlaylistEditor = new PlaylistEditor(mPlaylistManager, mUserPreferences);
+        }
 
-                    Stage stage = new Stage();
-                    stage.setOnHidden(event -> mUserPreferencesEditor = null);
-                    mUserPreferencesEditor.start(stage);
-                    mUserPreferencesEditor.showEditor(request);
-                }
-                catch(Throwable e)
-                {
-                    mLog.error("Error launching user preferences window", e);
-                }
-            });
-        }
-        else
-        {
-            Platform.runLater(() -> {
-                try
-                {
-                    Stage stage = mUserPreferencesEditor.getStage();
-                    stage.show();
-                    stage.toFront();
-                    stage.requestFocus();
-                    mUserPreferencesEditor.showEditor(request);
-                }
-                catch(Throwable t)
-                {
-                    mLog.error("Error showing existing preferences editor window", t);
-                }
-            });
-        }
+        return mPlaylistEditor;
     }
 
     /**
-     * Processes a request to show the radioreference.com login credentials editor
-     * @param request to view with a callback listener to receive the login credentials
+     * Access the playlist stage.
      */
-    @Subscribe
-    public void process(final LoginDialogViewRequest request)
+    private Stage getPlaylistStage()
     {
-        if(mLoginDialog != null)
-        {
-            mLoginDialog.show();
-        }
-        else
+        if(mPlaylistStage == null)
         {
             createJFXPanel();
-            Platform.setImplicitExit(false);
-            Platform.runLater(() -> {
-                try
-                {
-                    mLoginDialog = new LoginDialog(mUserPreferences, request.getListener());
-
-                    Stage stage = new Stage();
-                    stage.setOnHidden(event -> mLoginDialog = null);
-                    mLoginDialog.start(stage);
-                }
-                catch(Throwable e)
-                {
-                    mLog.error("Error launching user preferences window", e);
-                }
-            });
+            Scene scene = new Scene(getPlaylistEditor(), 1000, 750);
+            mPlaylistStage = new Stage();
+            mPlaylistStage.setTitle("Playlist Editor");
+            mPlaylistStage.setOnHidden(event -> mPlaylistEditor = null);
+            mPlaylistStage.setScene(scene);
         }
+
+        return mPlaylistStage;
     }
 
+    /**
+     * Processes a playlist editor request and brings the playlist editor into focus
+     */
+    @Subscribe
+    public void process(PlaylistEditorRequest request)
+    {
+        execute(() -> {
+            getPlaylistStage().show();
+            getPlaylistStage().toFront();
+            getPlaylistStage().requestFocus();
+            getPlaylistEditor().process(request);
+        });
+    }
+
+    /**
+     * User Preferences Editor
+     */
+    private UserPreferencesEditor getUserPreferencesEditor()
+    {
+        if(mUserPreferencesEditor == null)
+        {
+            mUserPreferencesEditor = new UserPreferencesEditor(mUserPreferences);
+        }
+
+        return mUserPreferencesEditor;
+    }
+
+    /**
+     * User Preferences Stage
+     */
+    private Stage getUserPreferencesStage()
+    {
+        if(mUserPreferencesStage == null)
+        {
+            createJFXPanel();
+            Scene scene = new Scene(getUserPreferencesEditor(), 900, 500);
+            mUserPreferencesStage = new Stage();
+            mUserPreferencesStage.setTitle("User Preferences");
+            mUserPreferencesStage.setScene(scene);
+        }
+
+        return mUserPreferencesStage;
+    }
+
+    /**
+     * Processes a user preferences editor request
+     */
+    @Subscribe
+    public void process(final PreferenceEditorViewRequest request)
+    {
+        execute(() -> {
+            getUserPreferencesStage().show();
+            getUserPreferencesStage().toFront();
+            getUserPreferencesStage().requestFocus();
+            getUserPreferencesEditor().process(request);
+        });
+    }
+
+    /**
+     * Channel Map Editor
+     */
+    private ChannelMapEditor getChannelMapEditor()
+    {
+        if(mChannelMapEditor == null)
+        {
+            mChannelMapEditor = new ChannelMapEditor(mPlaylistManager.getChannelMapModel());
+        }
+
+        return mChannelMapEditor;
+    }
+
+    /**
+     * Channel Map Stage
+     */
+    private Stage getChannelMapStage()
+    {
+        if(mChannelMapStage == null)
+        {
+            createJFXPanel();
+            Scene scene = new Scene(getChannelMapEditor(), 500, 500);
+            mChannelMapStage = new Stage();
+            mChannelMapStage.setTitle("Channel Map Editor");
+            mChannelMapStage.setScene(scene);
+        }
+
+        return mChannelMapStage;
+    }
+
+    /**
+     * Process a channel map editor request
+     */
     @Subscribe
     public void process(final ChannelMapEditorViewRequest request)
     {
-        if(mChannelMapEditor != null)
-        {
-            mChannelMapEditor.show(request.getChannelMapName());
-        }
-        else
-        {
-            createJFXPanel();
-            Platform.setImplicitExit(false);
-            Platform.runLater(() -> {
-                try
-                {
-                    mChannelMapEditor = new ChannelMapEditor(mChannelMapModel);
-                    Stage stage = new Stage();
-                    mChannelMapEditor.start(stage);
+        execute(() -> {
+            getChannelMapStage().show();
+            getChannelMapStage().toFront();
+            getChannelMapStage().requestFocus();
+            getChannelMapEditor().process(request);
+        });
+    }
 
-                    if(request.hasChannelMapName())
-                    {
-                        System.out.println("Requesting show channel map: " + request.getChannelMapName());
-                        mChannelMapEditor.show(request.getChannelMapName());
-                    }
-                }
-                catch(Throwable e)
+    @Override
+    public void start(Stage primaryStage) throws Exception
+    {
+        mLog.debug("Starting ...");
+        Parameters parameters = getParameters();
+        mLog.debug("Parameters: " + (parameters != null));
+
+        boolean valid = false;
+
+        if(parameters != null && parameters.getRaw().size() == 1)
+        {
+            String window = parameters.getRaw().get(0);
+
+            if(window != null)
+            {
+                switch(window)
                 {
-                    mLog.error("Error launching channel map editor window", e);
+                    case CHANNEL_MAP_EDITOR:
+                        //Generate some test data for the editor
+                        ChannelMap channelMap1 = new ChannelMap("Test Map 1");
+                        channelMap1.addRange(new ChannelRange(1,199,150000000, 12500));
+                        channelMap1.addRange(new ChannelRange(200,299,160000000, 25000));
+                        channelMap1.addRange(new ChannelRange(300,399,170000000, 12500));
+                        channelMap1.addRange(new ChannelRange(400,499,180000000, 25000));
+                        mPlaylistManager.getChannelMapModel().addChannelMap(channelMap1);
+
+                        ChannelMap channelMap2 = new ChannelMap("Test Map 2");
+                        channelMap2.addRange(new ChannelRange(1,199,450000000, 12500));
+                        channelMap2.addRange(new ChannelRange(200,299,460000000, 25000));
+                        channelMap2.addRange(new ChannelRange(300,399,470000000, 12500));
+                        channelMap2.addRange(new ChannelRange(400,499,480000000, 25000));
+                        mPlaylistManager.getChannelMapModel().addChannelMap(channelMap2);
+                        valid = true;
+                        process(new ChannelMapEditorViewRequest());
+                        break;
+                    case PLAYLIST_EDITOR:
+                        valid = true;
+                        process(new ViewPlaylistRequest());
+                        break;
+                    case USER_PREFERENCES_EDITOR:
+                        valid = true;
+                        process(new PreferenceEditorViewRequest(PreferenceEditorType.DEFAULT));
+                        break;
+                    default:
+                        break;
                 }
-            });
+            }
         }
+
+        if(!valid)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.append("An argument is required to launch JavaFX windows from this window manager.  " +
+                "Valid options are:\n\tplaylist\tPlaylist Editor\n\tpreferences\tUser Preferences Editor\n\tchannelmap\t" +
+                "Channel Map Editor\n");
+            sb.append("Supplied Argument(s): ").append(parameters.getRaw());
+
+            mLog.error(sb.toString());
+        }
+    }
+
+    public static void main(String[] args)
+    {
+        mLog.info("Application Start - Parameters: " + args);
+        launch(args);
     }
 }

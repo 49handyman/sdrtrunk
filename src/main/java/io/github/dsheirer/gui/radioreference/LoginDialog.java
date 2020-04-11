@@ -26,32 +26,27 @@ import io.github.dsheirer.preference.UserPreferences;
 import io.github.dsheirer.rrapi.RadioReferenceException;
 import io.github.dsheirer.rrapi.response.Fault;
 import io.github.dsheirer.rrapi.type.AuthorizationInformation;
-import io.github.dsheirer.sample.Listener;
 import io.github.dsheirer.service.radioreference.RadioReference;
-import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.stage.Stage;
 import jiconfont.icons.font_awesome.FontAwesome;
-import jiconfont.javafx.IconFontFX;
 import jiconfont.javafx.IconNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,12 +56,10 @@ import java.net.ConnectException;
 /**
  * Login dialog for radioreference.com with support for testing connection to the service.
  */
-public class LoginDialog extends Application
+public class LoginDialog extends Dialog<AuthorizationInformation>
 {
     private final static Logger mLog = LoggerFactory.getLogger(LoginDialog.class);
     private UserPreferences mUserPreferences;
-    private Stage mStage;
-    private VBox mContent;
     private TextField mUserNameText;
     private PasswordField mPasswordField;
     private TextField mPasswordText;
@@ -74,78 +67,54 @@ public class LoginDialog extends Application
     private CheckBox mShowPasswordCheckBox;
     private CheckBox mStoreLoginCheckBox;
     private Button mTestConnectionButton;
-    private Button mCancelButton;
-    private Button mOkButton;
-    private HBox mButtonsBox;
     private IconNode mTestPassIcon;
     private IconNode mTestFailIcon;
-    private Listener<AuthorizationInformation> mResultsListener;
 
     /**
      * Constructs an instance.
      * @param userPreferences for accessing stored user credentials and preferences
-     * @param listener to receive the authorization information instance created for the login
      */
-    public LoginDialog(UserPreferences userPreferences, Listener<AuthorizationInformation> listener)
+    public LoginDialog(UserPreferences userPreferences)
     {
         mUserPreferences = userPreferences;
-        mResultsListener = listener;
-        IconFontFX.register(jiconfont.icons.font_awesome.FontAwesome.getIconFont());
-    }
 
-    /**
-     * Constructs an instance for testing
-     */
-    public LoginDialog()
-    {
-        this(new UserPreferences(), new Listener<AuthorizationInformation>()
-        {
-            @Override
-            public void receive(AuthorizationInformation authorizationInformation)
+        setTitle("Radio Reference Login");
+        final DialogPane dialogPane = getDialogPane();
+        dialogPane.setContent(getGridPane());
+        dialogPane.getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        setResultConverter(dialogButton -> {
+            ButtonBar.ButtonData data = dialogButton == null ? null : dialogButton.getButtonData();
+
+            if(data == null)
             {
-                mLog.debug("Auth Info - User:" + authorizationInformation.getUserName() +
-                    " Password:" + authorizationInformation.getPassword());
+                return null;
+            }
+            else
+            {
+                return getAuthorizationInformation();
             }
         });
     }
 
-    /**
-     * Shows this dialog if it is either iconified or behind other windows
-     */
-    public void show()
+    private AuthorizationInformation getAuthorizationInformation()
     {
-        if(mStage.isIconified())
+        boolean store = getStoreLoginCheckBox().isSelected();
+        String username = getUserNameText().getText();
+        String password = getPasswordField().isVisible() ? getPasswordField().getText() : getPasswordText().getText();
+
+        if(store)
         {
-            mStage.setIconified(false);
+            mUserPreferences.getRadioReferencePreference().setStoreCredentials(getStoreLoginCheckBox().isSelected());
+            mUserPreferences.getRadioReferencePreference().setUserName(username);
+            mUserPreferences.getRadioReferencePreference().setPassword(password);
         }
-        mStage.show();
-        mStage.requestFocus();
-        mStage.toFront();
-    }
-
-    @Override
-    public void start(Stage primaryStage) throws Exception
-    {
-        mStage = primaryStage;
-        mStage.setTitle("Radio Reference Login");
-        Scene scene = new Scene(getContent(), 400, 250);
-        mStage.setScene(scene);
-        mStage.show();
-    }
-
-    private Parent getContent()
-    {
-        if(mContent == null)
+        else
         {
-            mContent = new VBox();
-            mContent.getChildren().add(getGridPane());
-            Label filler = new Label();
-            filler.setMaxHeight(Double.MAX_VALUE);
-            VBox.setVgrow(filler, Priority.ALWAYS);
-            mContent.getChildren().addAll(filler, getButtonsBox());
+            mUserPreferences.getRadioReferencePreference().removeStoredCredentials();
         }
 
-        return mContent;
+        return RadioReference.getAuthorizatonInformation(username, password);
     }
 
     private GridPane getGridPane()
@@ -403,79 +372,6 @@ public class LoginDialog extends Application
         return mTestConnectionButton;
     }
 
-    private Button getCancelButton()
-    {
-        if(mCancelButton == null)
-        {
-            mCancelButton = new Button("Cancel");
-            mCancelButton.setMaxWidth(Double.MAX_VALUE);
-            mCancelButton.setOnAction(new EventHandler<ActionEvent>()
-            {
-                @Override
-                public void handle(ActionEvent event)
-                {
-                    mStage.hide();
-                }
-            });
-        }
-
-        return mCancelButton;
-    }
-
-    private Button getOkButton()
-    {
-        if(mOkButton == null)
-        {
-            mOkButton = new Button("OK");
-            mOkButton.setMaxWidth(Double.MAX_VALUE);
-            mOkButton.setOnAction(new EventHandler<ActionEvent>()
-            {
-                @Override
-                public void handle(ActionEvent event)
-                {
-                    boolean store = getStoreLoginCheckBox().isSelected();
-                    String username = getUserNameText().getText();
-                    String password = getPasswordField().isVisible() ? getPasswordField().getText() : getPasswordText().getText();
-
-                    if(store)
-                    {
-                        mUserPreferences.getRadioReferencePreference().setStoreCredentials(getStoreLoginCheckBox().isSelected());
-                        mUserPreferences.getRadioReferencePreference().setUserName(username);
-                        mUserPreferences.getRadioReferencePreference().setPassword(password);
-                    }
-                    else
-                    {
-                        mUserPreferences.getRadioReferencePreference().removeStoredCredentials();
-                    }
-
-                    if(mResultsListener != null)
-                    {
-                        mResultsListener.receive(RadioReference.getAuthorizatonInformation(username, password));
-                    }
-
-                    mStage.hide();
-                }
-            });
-        }
-
-        return mOkButton;
-    }
-
-    private HBox getButtonsBox()
-    {
-        if(mButtonsBox == null)
-        {
-            mButtonsBox = new HBox();
-            mButtonsBox.setPadding(new Insets(5,5,5,5));
-            mButtonsBox.setSpacing(5.0);
-            HBox.setHgrow(getCancelButton(), Priority.ALWAYS);
-            HBox.setHgrow(getOkButton(), Priority.ALWAYS);
-            mButtonsBox.getChildren().addAll(getOkButton(), getCancelButton());
-        }
-
-        return mButtonsBox;
-    }
-
     private IconNode getTestPassIcon()
     {
         if(mTestPassIcon == null)
@@ -498,10 +394,5 @@ public class LoginDialog extends Application
         }
 
         return mTestFailIcon;
-    }
-
-    public static void main(String[] args)
-    {
-        launch(args);
     }
 }

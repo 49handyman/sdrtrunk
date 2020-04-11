@@ -19,77 +19,100 @@
 
 package io.github.dsheirer.gui.playlist.alias;
 
+import io.github.dsheirer.alias.Alias;
 import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
+import javafx.geometry.Insets;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 
+/**
+ * Primary alias editor with tabbed panes for view-by alias editing support
+ */
 public class AliasEditor extends TabPane
 {
     private PlaylistManager mPlaylistManager;
     private UserPreferences mUserPreferences;
+    private AliasConfigurationEditor mAliasConfigurationEditor;
     private Tab mAliasConfigurationTab;
-    private Tab mAliasRadioReferenceTab;
     private Tab mAliasIdentifierTab;
-    private Tab mAliasPriorityTab;
     private Tab mAliasRecordingTab;
 
+    /**
+     * Constructs an instance
+     * @param playlistManager for alias model access
+     * @param userPreferences for settings
+     */
     public AliasEditor(PlaylistManager playlistManager, UserPreferences userPreferences)
     {
         mPlaylistManager = playlistManager;
         mUserPreferences = userPreferences;
 
+        setPadding(new Insets(4,0,0,0));
         setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        getTabs().addAll(getAliasConfigurationTab(), getAliasRadioReferenceTab(), getAliasIdentifierTab(),
-            getAliasPriorityTab(), getAliasRecordingTab());
+        Tab viewByTab = new Tab("View By:");
+        viewByTab.setDisable(true);
+        getTabs().addAll(viewByTab, getAliasConfigurationTab(), getAliasIdentifierTab(), getAliasRecordingTab());
+    }
+
+    /**
+     * Processes the alias view request.
+     *
+     * Note: this method must be invoked on the JavaFX platform thread
+     *
+     * @param aliasTabRequest to process
+     */
+    public void process(AliasTabRequest aliasTabRequest)
+    {
+        if(aliasTabRequest instanceof ViewAliasRequest)
+        {
+            Alias alias = ((ViewAliasRequest)aliasTabRequest).getAlias();
+
+            if(alias != null)
+            {
+                getSelectionModel().select(getAliasConfigurationTab());
+                getAliasConfigurationEditor().show(alias);
+            }
+        }
     }
 
     private Tab getAliasConfigurationTab()
     {
         if(mAliasConfigurationTab == null)
         {
-            mAliasConfigurationTab = new Tab("Configuration");
-            mAliasConfigurationTab.setContent(new AliasConfigurationEditor(mPlaylistManager, mUserPreferences));
+            mAliasConfigurationTab = new Tab("Alias");
+            mAliasConfigurationTab.setContent(getAliasConfigurationEditor());
         }
 
         return mAliasConfigurationTab;
     }
 
-    private Tab getAliasRadioReferenceTab()
+    private AliasConfigurationEditor getAliasConfigurationEditor()
     {
-        if(mAliasRadioReferenceTab == null)
+        if(mAliasConfigurationEditor == null)
         {
-            mAliasRadioReferenceTab = new Tab("Radio Reference Import");
+            mAliasConfigurationEditor = new AliasConfigurationEditor(mPlaylistManager, mUserPreferences);
         }
 
-        return mAliasRadioReferenceTab;
+        return mAliasConfigurationEditor;
     }
 
     private Tab getAliasIdentifierTab()
     {
         if(mAliasIdentifierTab == null)
         {
-            mAliasIdentifierTab = new Tab("View By: Identifier");
+            mAliasIdentifierTab = new Tab("Identifier");
+            mAliasIdentifierTab.setContent(new AliasViewByIdentifierEditor(mPlaylistManager));
         }
 
         return mAliasIdentifierTab;
-    }
-
-    private Tab getAliasPriorityTab()
-    {
-        if(mAliasPriorityTab == null)
-        {
-            mAliasPriorityTab = new Tab("View By: Listen Priority");
-        }
-
-        return mAliasPriorityTab;
     }
 
     private Tab getAliasRecordingTab()
     {
         if(mAliasRecordingTab == null)
         {
-            mAliasRecordingTab = new Tab("View By: Recording");
+            mAliasRecordingTab = new Tab("Record");
             mAliasRecordingTab.setContent(new AliasViewByRecordingEditor(mPlaylistManager));
         }
 

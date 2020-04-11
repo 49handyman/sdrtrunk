@@ -26,6 +26,7 @@ import io.github.dsheirer.alias.AliasModel;
 import io.github.dsheirer.gui.editor.Editor;
 import io.github.dsheirer.gui.editor.EmptyEditor;
 import io.github.dsheirer.icon.IconManager;
+import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
 import net.miginfocom.swing.MigLayout;
 import org.slf4j.Logger;
@@ -65,11 +66,10 @@ public class BroadcastPanel extends JPanel implements ActionListener, ListSelect
     private JButton mCopyButton = new JButton(COPY_BROADCAST_CONFIGURATION);
     private JButton mDeleteButton = new JButton(DELETE_BROADCAST_CONFIGURATION);
 
-    public BroadcastPanel(BroadcastModel broadcastModel, AliasModel aliasModel, IconManager iconManager,
-                          UserPreferences userPreferences)
+    public BroadcastPanel(PlaylistManager playlistManager, IconManager iconManager, UserPreferences userPreferences)
     {
-        mBroadcastModel = broadcastModel;
-        mAliasModel = aliasModel;
+        mBroadcastModel = playlistManager.getBroadcastModel();
+        mAliasModel = playlistManager.getAliasModel();
         mIconManager = iconManager;
         mEditor = mEmptyEditor;
         mUserPreferences = userPreferences;
