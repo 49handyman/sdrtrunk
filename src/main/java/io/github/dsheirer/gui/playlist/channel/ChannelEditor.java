@@ -101,6 +101,28 @@ public class ChannelEditor extends SplitPane
         //TODO: add a 'Features' column that has icons: enabled/running, auto-start, logging, or recording
     }
 
+    /**
+     * Processes the channel view request.
+     *
+     * Note: this method must be invoked on the JavaFX platform thread
+     *
+     * @param channelTabRequest to process
+     */
+    public void process(ChannelTabRequest channelTabRequest)
+    {
+        if(channelTabRequest instanceof ViewChannelRequest)
+        {
+            Channel channel = ((ViewChannelRequest)channelTabRequest).getChannel();
+
+            if(channel != null)
+            {
+                getSearchField().setText(null);
+                getChannelTableView().getSelectionModel().select(channel);
+                getChannelTableView().scrollTo(channel);
+            }
+        }
+    }
+
     private void setChannel(Channel channel)
     {
         //Prompt the user to save if the contents of the current channel editor have been modified

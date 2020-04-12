@@ -44,7 +44,6 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
-import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
@@ -314,8 +313,8 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
 
                             Alert alert = new Alert(Alert.AlertType.ERROR, "Error: " + ce.getMessage(), ButtonType.OK);
                             alert.setTitle("Channel Stop Error");
-                            alert.setHeaderText("Couldn't stop channel");
-                            alert.initOwner(((Node)getPlayButton()).getScene().getWindow());
+                            alert.setHeaderText("Can't stop channel");
+                            alert.initOwner((getPlayButton()).getScene().getWindow());
                             alert.showAndWait();
                         }
                     }
@@ -331,8 +330,8 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
 
                             Alert alert = new Alert(Alert.AlertType.ERROR, "Error: " + ce.getMessage(), ButtonType.OK);
                             alert.setTitle("Channel Play Error");
-                            alert.setHeaderText("Couldn't play channel");
-                            alert.initOwner(((Node)getPlayButton()).getScene().getWindow());
+                            alert.setHeaderText("Can't play channel");
+                            alert.initOwner((getPlayButton()).getScene().getWindow());
                             alert.showAndWait();
                         }
                     }

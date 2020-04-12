@@ -23,162 +23,104 @@
 package io.github.dsheirer.gui.playlist.radioreference;
 
 import io.github.dsheirer.gui.radioreference.LoginDialog;
+import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
-import io.github.dsheirer.preference.radioreference.RadioReferencePreference;
 import io.github.dsheirer.rrapi.RadioReferenceException;
-import io.github.dsheirer.rrapi.type.Agency;
-import io.github.dsheirer.rrapi.type.AgencyInfo;
 import io.github.dsheirer.rrapi.type.AuthorizationInformation;
-import io.github.dsheirer.rrapi.type.Category;
 import io.github.dsheirer.rrapi.type.Country;
 import io.github.dsheirer.rrapi.type.CountryInfo;
 import io.github.dsheirer.rrapi.type.County;
 import io.github.dsheirer.rrapi.type.CountyInfo;
-import io.github.dsheirer.rrapi.type.Flavor;
-import io.github.dsheirer.rrapi.type.Mode;
 import io.github.dsheirer.rrapi.type.State;
 import io.github.dsheirer.rrapi.type.StateInfo;
-import io.github.dsheirer.rrapi.type.System;
-import io.github.dsheirer.rrapi.type.Tag;
-import io.github.dsheirer.rrapi.type.Type;
-import io.github.dsheirer.rrapi.type.UserInfo;
 import io.github.dsheirer.service.radioreference.RadioReference;
 import io.github.dsheirer.util.ThreadPool;
 import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
 import javafx.geometry.Insets;
-import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.ListView;
-import javafx.scene.control.SplitPane;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.util.Callback;
 import javafx.util.StringConverter;
 import jiconfont.icons.font_awesome.FontAwesome;
 import jiconfont.javafx.IconNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
 import java.util.function.Consumer;
 
 public class RadioReferenceEditor extends BorderPane implements Consumer<AuthorizationInformation>
 {
     private static final Logger mLog = LoggerFactory.getLogger(RadioReferenceEditor.class);
-    public static final String AGENCY_LABEL = "Agency:";
-    public static final String COUNTY_LABEL = "County:";
-
     private UserPreferences mUserPreferences;
     private RadioReference mRadioReference;
-    private HBox mTopBox;
+    private PlaylistManager mPlaylistManager;
+    private VBox mTopBox;
     private HBox mCredentialsBox;
     private TextField mUserNameText;
     private TextField mAccountExpiresText;
     private IconNode mTestPassIcon;
     private IconNode mTestFailIcon;
     private Button mLoginButton;
-    private HBox mCountryBox;
+    private GridPane mComboBoxPane;
     private ComboBox<Country> mCountryComboBox;
-    private SplitPane mSplitPane;
-    private HBox mCountryEntityBox;
-    private ListView<State> mStateListView;
-    private ListView<Agency> mCountryAgencyListView;
-    private HBox mStateEntityBox;
-    private ListView<County> mCountyListView;
-    private ListView<Agency> mStateAgencyListView;
-    private HBox mCountyEntityBox;
-    private ListView<System> mSystemListView;
-    private ListView<Agency> mCountyAgencyListView;
-    private Map<Integer,Flavor> mFlavorMap = new TreeMap<>();
-    private Map<Integer, Mode> mModesMap = new TreeMap<>();
-    private Map<Integer,Type> mTypesMap = new TreeMap<>();
-    private Map<Integer,Tag> mTagsMap = new TreeMap<>();
-    private FrequencyTableView mFrequencyTableView;
-    private TrunkedSystemView mTrunkedSystemView;
+    private ComboBox<State> mStateComboBox;
+    private ComboBox<County> mCountyComboBox;
+    private AgencyEditor mNationalAgencyEditor;
+    private AgencyEditor mStateAgencyEditor;
+    private AgencyEditor mCountyAgencyEditor;
+    private SystemEditor mSystemEditor;
+    private TabPane mTabPane;
+    private Tab mNationalAgencyTab;
+    private Tab mStateAgencyTab;
+    private Tab mCountyAgencyTab;
 
-    public RadioReferenceEditor(UserPreferences userPreferences, RadioReference radioReference)
+    public RadioReferenceEditor(UserPreferences userPreferences, PlaylistManager playlistManager)
     {
         mUserPreferences = userPreferences;
-        mRadioReference = radioReference;
+        mRadioReference = playlistManager.getRadioReference();
+        mPlaylistManager = playlistManager;
 
         setTop(getTopBox());
-        setCenter(getSplitPane());
-        checkAccount();
-        refreshLookupTables();
-        refreshCountries();
-    }
+        setCenter(getTabPane());
 
-    private void checkAccount()
-    {
-        if(mRadioReference.hasCredentials())
+        login();
+
+        if(mRadioReference.availableProperty().get())
         {
-            Platform.runLater(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    try
-                    {
-                        UserInfo userInfo = mRadioReference.getService().getUserInfo();
-                        getUserNameText().setText(userInfo.getUserName());
-                        getAccountExpiresText().setText(userInfo.getExpirationDate());
-                        mRadioReference.loggedOnProperty().set(true);
-                    }
-                    catch(RadioReferenceException rre)
-                    {
-                        getAccountExpiresText().setText(null);
-                        mRadioReference.loggedOnProperty().set(false);
-                    }
-                }
-            });
+            refreshCountries();
         }
+
+        //Refresh the countries combo box once we're logged on, if not already
+        mRadioReference.availableProperty().addListener((observable, oldValue, newValue) -> {
+            if(newValue)
+            {
+                refreshCountries();
+            }
+        });
     }
 
-    private void refreshLookupTables()
+    private void login()
     {
-        if(mRadioReference.hasCredentials())
+        if(mUserPreferences.getRadioReferencePreference().hasStoredCredentials())
         {
-            mFlavorMap.clear();
+            AuthorizationInformation credentials = mUserPreferences.getRadioReferencePreference().getAuthorizationInformation();
 
-            ThreadPool.SCHEDULED.submit(new Runnable()
+            if(credentials != null)
             {
-                @Override
-                public void run()
-                {
-                    try
-                    {
-                        Map<Integer,Flavor> flavorMap = mRadioReference.getService().getFlavorsMap();
-                        mFlavorMap.putAll(flavorMap);
-                        Map<Integer,Mode> modesMap = mRadioReference.getService().getModesMap();
-                        mModesMap.putAll(modesMap);
-                        Map<Integer,Type> typesMap = mRadioReference.getService().getTypesMap();
-                        mTypesMap.putAll(typesMap);
-                        Map<Integer,Tag> tagsMap = mRadioReference.getService().getTagsMap();
-                        mTagsMap.putAll(tagsMap);
-                    }
-                    catch(RadioReferenceException rre)
-                    {
-                        mLog.error("Error refreshing flavors, modes, types and tags lookup maps");
-                    }
-                }
-            });
+                ThreadPool.SCHEDULED.execute(() -> accept(credentials));
+            }
         }
     }
 
@@ -222,402 +164,184 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         });
     }
 
-    private void setCountry(final Country country)
+    private TabPane getTabPane()
     {
-        getStateListView().getItems().clear();
-        getCountryAgencyListView().getItems().clear();
-        getFrequencyTableView().update(null, null, Collections.emptyList());
-        getTrunkedSystemView().setSystem(null);
-
-        final int preferredStateId = mUserPreferences.getRadioReferencePreference().getPreferredStateId();
-        final int preferredAgencyId = mUserPreferences.getRadioReferencePreference().getPreferredAgencyId();
-
-        if(country != null && mRadioReference.hasCredentials())
+        if(mTabPane == null)
         {
-            ThreadPool.SCHEDULED.submit(new Runnable()
-            {
-                @Override
-                public void run()
+            mTabPane = new TabPane();
+            mTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+            Tab systemTab = new Tab("Trunked Systems");
+            systemTab.setContent(getSystemEditor());
+            mTabPane.getTabs().addAll(systemTab, getNationalAgencyTab(), getStateAgencyTab(), getCountyAgencyTab());
+        }
+
+        return mTabPane;
+    }
+
+    private Tab getNationalAgencyTab()
+    {
+        if(mNationalAgencyTab == null)
+        {
+            mNationalAgencyTab = new Tab("National Agencies");
+            mNationalAgencyTab.setContent(getNationalAgencyEditor());
+            getNationalAgencyEditor().agencyCountProperty().addListener((observable, oldValue, newValue) -> {
+                int count = (newValue != null ? newValue.intValue() : 0);
+
+                if(count > 0)
                 {
-                    try
-                    {
-                        CountryInfo countryInfo = mRadioReference.getService().getCountryInfo(country);
-                        List<State> states = countryInfo.getStates();
-                        Collections.sort(states, new Comparator<State>()
-                        {
-                            @Override
-                            public int compare(State o1, State o2)
-                            {
-                                return o1.getName().compareTo(o2.getName());
-                            }
-                        });
-                        List<Agency> agencies = countryInfo.getAgencies();
-                        Collections.sort(agencies, new Comparator<Agency>()
-                        {
-                            @Override
-                            public int compare(Agency o1, Agency o2)
-                            {
-                                return o1.getName().compareTo(o2.getName());
-                            }
-                        });
-
-                        if(states != null || agencies != null)
-                        {
-                            Platform.runLater(new Runnable()
-                            {
-                                @Override
-                                public void run()
-                                {
-                                    if(states != null && !states.isEmpty())
-                                    {
-                                        getStateListView().getItems().addAll(states);
-
-                                        if(preferredStateId >= 0)
-                                        {
-                                            for(State state: states)
-                                            {
-                                                if(state.getStateId() == preferredStateId)
-                                                {
-                                                    getStateListView().getSelectionModel().select(state);
-                                                    getStateListView().scrollTo(state);
-                                                    continue;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if(agencies != null && !agencies.isEmpty())
-                                    {
-                                        getCountryAgencyListView().getItems().addAll(agencies);
-
-                                        if(preferredAgencyId >= 0)
-                                        {
-                                            for(Agency agency: agencies)
-                                            {
-                                                if(agency.getAgencyId() == preferredAgencyId)
-                                                {
-                                                    getCountryAgencyListView().getSelectionModel().select(agency);
-                                                    getCountryAgencyListView().scrollTo(agency);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            });
-
-                        }
-                    }
-                    catch(RadioReferenceException rre)
-                    {
-                        mLog.error("Error retrieving country info for " + country.getName());
-                    }
+                    getNationalAgencyTab().setText("National Agencies (" + count + ")");
+                }
+                else
+                {
+                    getNationalAgencyTab().setText("National Agencies");
                 }
             });
         }
+
+        return mNationalAgencyTab;
     }
 
-    private void setState(State state)
+    private Tab getStateAgencyTab()
     {
-        getCountyListView().getItems().clear();
-        getStateAgencyListView().getItems().clear();
-
-        final int preferredCountyId = mUserPreferences.getRadioReferencePreference().getPreferredCountyId();
-        final int preferredAgencyId = mUserPreferences.getRadioReferencePreference().getPreferredAgencyId();
-
-        if(state != null && mRadioReference.hasCredentials())
+        if(mStateAgencyTab == null)
         {
-            ThreadPool.SCHEDULED.submit(new Runnable()
-            {
-                @Override
-                public void run()
+            mStateAgencyTab = new Tab("State Agencies");
+            mStateAgencyTab.setContent(getStateAgencyEditor());
+            getStateAgencyEditor().agencyCountProperty().addListener((observable, oldValue, newValue) -> {
+                int count = (newValue != null ? newValue.intValue() : 0);
+
+                if(count > 0)
                 {
-                    try
-                    {
-                        StateInfo stateInfo = mRadioReference.getService().getStateInfo(state.getStateId());
-
-                        List<County> counties = stateInfo.getCounties();
-
-                        //Pre-cache county information instances
-                        ThreadPool.SCHEDULED.submit(new Runnable()
-                        {
-                            @Override
-                            public void run()
-                            {
-                                try
-                                {
-                                    for(County county: counties)
-                                    {
-                                        mRadioReference.getService().getCountyInfo(county.getCountyId());
-                                    }
-                                }
-                                catch(RadioReferenceException rre)
-                                {
-                                    //Do nothing, this just an attempt to pre-cache the counties
-                                }
-                            }
-                        });
-
-                        Collections.sort(counties, new Comparator<County>()
-                        {
-                            @Override
-                            public int compare(County o1, County o2)
-                            {
-                                return o1.getName().compareTo(o2.getName());
-                            }
-                        });
-
-                        List<Agency> agencies = stateInfo.getAgencies();
-                        Collections.sort(agencies, new Comparator<Agency>()
-                        {
-                            @Override
-                            public int compare(Agency o1, Agency o2)
-                            {
-                                return o1.getName().compareTo(o2.getName());
-                            }
-                        });
-
-
-
-                        if(counties != null || agencies != null)
-                        {
-                            Platform.runLater(new Runnable()
-                            {
-                                @Override
-                                public void run()
-                                {
-                                    if(counties != null && !counties.isEmpty())
-                                    {
-                                        getCountyListView().getItems().addAll(counties);
-
-                                        if(preferredCountyId >= 0)
-                                        {
-                                            for(County county: counties)
-                                            {
-                                                if(county.getCountyId() == preferredCountyId)
-                                                {
-                                                    getCountyListView().getSelectionModel().select(county);
-                                                    getCountyListView().scrollTo(county);
-                                                    continue;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if(agencies != null && !agencies.isEmpty())
-                                    {
-                                        getStateAgencyListView().getItems().addAll(agencies);
-
-                                        if(preferredAgencyId >= 0)
-                                        {
-                                            for(Agency agency: agencies)
-                                            {
-                                                if(agency.getAgencyId() == preferredAgencyId)
-                                                {
-                                                    getStateAgencyListView().getSelectionModel().select(agency);
-                                                    getStateAgencyListView().scrollTo(agency);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            });
-
-                        }
-                    }
-                    catch(RadioReferenceException rre)
-                    {
-                        mLog.error("Error retrieving country info for " + state.getName(), rre);
-                    }
+                    getStateAgencyTab().setText("State Agencies (" + count + ")");
+                }
+                else
+                {
+                    getStateAgencyTab().setText("State Agencies");
                 }
             });
         }
+
+        return mStateAgencyTab;
     }
 
-    private void setCounty(County county)
+    private Tab getCountyAgencyTab()
     {
-        getSystemListView().getItems().clear();
-        getCountyAgencyListView().getItems().clear();
-        final int preferredSystemId = mUserPreferences.getRadioReferencePreference().getPreferredSystemId();
-        final int preferredAgencyId = mUserPreferences.getRadioReferencePreference().getPreferredAgencyId();
-
-        if(county != null && mRadioReference.hasCredentials())
+        if(mCountyAgencyTab == null)
         {
-            ThreadPool.SCHEDULED.submit(new Runnable()
-            {
-                @Override
-                public void run()
+            mCountyAgencyTab = new Tab("County Agencies");
+            mCountyAgencyTab.setContent(getCountyAgencyEditor());
+            getCountyAgencyEditor().agencyCountProperty().addListener((observable, oldValue, newValue) -> {
+                int count = (newValue != null ? newValue.intValue() : 0);
+
+                if(count > 0)
                 {
-                    try
-                    {
-                        CountyInfo countyInfo = mRadioReference.getService().getCountyInfo(county.getCountyId());
-                        setFrequencyViewCategories(COUNTY_LABEL, countyInfo.getName(), countyInfo.getCategories());
-                        List<System> systems = countyInfo.getSystems();
-                        Collections.sort(systems, new Comparator<System>()
-                        {
-                            @Override
-                            public int compare(System o1, System o2)
-                            {
-                                return o1.getName().compareTo(o2.getName());
-                            }
-                        });
-
-                        List<Agency> agencies = countyInfo.getAgencies();
-                        Collections.sort(agencies, new Comparator<Agency>()
-                        {
-                            @Override
-                            public int compare(Agency o1, Agency o2)
-                            {
-                                return o1.getName().compareTo(o2.getName());
-                            }
-                        });
-
-                        if(systems != null || agencies != null)
-                        {
-                            Platform.runLater(new Runnable()
-                            {
-                                @Override
-                                public void run()
-                                {
-                                    if(systems != null && !systems.isEmpty())
-                                    {
-                                        getSystemListView().getItems().addAll(systems);
-
-                                        if(preferredSystemId >= 0)
-                                        {
-                                            for(System system: systems)
-                                            {
-                                                if(system.getSystemId() == preferredSystemId)
-                                                {
-                                                    getSystemListView().getSelectionModel().select(system);
-                                                    getSystemListView().scrollTo(system);
-                                                    continue;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if(agencies != null && !agencies.isEmpty())
-                                    {
-                                        getCountyAgencyListView().getItems().addAll(agencies);
-
-                                        if(preferredAgencyId >= 0)
-                                        {
-                                            for(Agency agency: agencies)
-                                            {
-                                                if(agency.getAgencyId() == preferredAgencyId)
-                                                {
-                                                    getCountyAgencyListView().getSelectionModel().select(agency);
-                                                    getCountyAgencyListView().scrollTo(agency);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                    }
-                    catch(RadioReferenceException rre)
-                    {
-                        mLog.error("Error retrieving country info for " + county.getName(), rre);
-                    }
+                    getCountyAgencyTab().setText("County Agencies (" + count + ")");
+                }
+                else
+                {
+                    getCountyAgencyTab().setText("County Agencies");
                 }
             });
         }
+
+        return mCountyAgencyTab;
     }
 
-    /**
-     * Sets the argument as the results view node in the lower half of the split pane
-     * @param node to view
-     */
-    private void setResultsView(Node node)
+    private AgencyEditor getNationalAgencyEditor()
     {
-        if(getSplitPane().getItems().size() == 2)
+        if(mNationalAgencyEditor == null)
         {
-            getSplitPane().getItems().remove(1);
-            getSplitPane().getItems().add(node);
+            mNationalAgencyEditor = new AgencyEditor(mUserPreferences, mRadioReference, mPlaylistManager, Level.NATIONAL);
         }
-        else
-        {
-            mLog.error("Error - expected 2 nodes in split pane but encountered: " + getSplitPane().getItems().size());
-        }
+
+        return mNationalAgencyEditor;
     }
 
-    /**
-     * Updates the frequency list view with the label and value and updates the categories list
-     * @param label to use for the value
-     * @param value of the agency name
-     * @param categories categories for an agency
-     */
-    private void setFrequencyViewCategories(String label, String value, List<Category> categories)
+    private AgencyEditor getStateAgencyEditor()
     {
-        Runnable runnable = new Runnable()
+        if(mStateAgencyEditor == null)
         {
-            @Override
-            public void run()
-            {
-                setResultsView(getFrequencyTableView());
-                getFrequencyTableView().clear();
-                getFrequencyTableView().update(label, value, categories);
-            }
-        };
+            mStateAgencyEditor = new AgencyEditor(mUserPreferences, mRadioReference, mPlaylistManager, Level.STATE);
+        }
 
-        if(Platform.isFxApplicationThread())
-        {
-            runnable.run();
-        }
-        else
-        {
-            Platform.runLater(runnable);
-        }
+        return mStateAgencyEditor;
     }
 
-    private void setSystem(System system)
+    private AgencyEditor getCountyAgencyEditor()
     {
-        if(system != null)
+        if(mCountyAgencyEditor == null)
         {
-            mUserPreferences.getRadioReferencePreference().setPreferredAgencyId(RadioReferencePreference.INVALID_ID);
-            mUserPreferences.getRadioReferencePreference().setPreferredSystemId(system.getSystemId());
-            setResultsView(getTrunkedSystemView());
-            getTrunkedSystemView().setSystem(system);
+            mCountyAgencyEditor = new AgencyEditor(mUserPreferences, mRadioReference, mPlaylistManager, Level.COUNTY);
         }
+
+        return mCountyAgencyEditor;
     }
 
-    private void setAgency(final Agency agency)
+    private SystemEditor getSystemEditor()
     {
-        if(agency != null)
+        if(mSystemEditor == null)
         {
-            mUserPreferences.getRadioReferencePreference().setPreferredSystemId(RadioReferencePreference.INVALID_ID);
-            mUserPreferences.getRadioReferencePreference().setPreferredAgencyId(agency.getAgencyId());
-
-            ThreadPool.SCHEDULED.submit(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    try
-                    {
-                        final AgencyInfo agencyInfo = mRadioReference.getService().getAgencyInfo(agency);
-                        setFrequencyViewCategories(AGENCY_LABEL, agencyInfo.getName(), agencyInfo.getCategories());
-                    }
-                    catch(RadioReferenceException rre)
-                    {
-                        mLog.error("Error", rre);
-                    }
-                }
-            });
+            mSystemEditor = new SystemEditor(mUserPreferences, mRadioReference);
         }
+
+        return mSystemEditor;
     }
 
-    private HBox getTopBox()
+    private VBox getTopBox()
     {
         if(mTopBox == null)
         {
-            mTopBox = new HBox();
-            HBox.setHgrow(getCredentialsBox(), Priority.ALWAYS);
-            mTopBox.getChildren().addAll(getCountryBox(), getCredentialsBox());
+            mTopBox = new VBox();
+            mTopBox.setSpacing(5);
+            mTopBox.setPadding(new Insets(10,10,10,10));
+            mTopBox.getChildren().addAll(getCredentialsBox(), getComboBoxPane());
         }
 
         return mTopBox;
+    }
+
+    private GridPane getComboBoxPane()
+    {
+        if(mComboBoxPane == null)
+        {
+            mComboBoxPane = new GridPane();
+            mComboBoxPane.setHgap(5);
+            mComboBoxPane.setVgap(2);
+
+            ColumnConstraints column1 = new ColumnConstraints();
+            column1.setPercentWidth(33.33);
+            ColumnConstraints column2 = new ColumnConstraints();
+            column2.setPercentWidth(33.33);
+            ColumnConstraints column3 = new ColumnConstraints();
+            column3.setPercentWidth(33.33);
+            mComboBoxPane.getColumnConstraints().addAll(column1, column2, column3);
+
+            Label countryLabel = new Label("Country");
+            GridPane.setConstraints(countryLabel, 0, 0);
+            mComboBoxPane.getChildren().add(countryLabel);
+
+            GridPane.setConstraints(getCountryComboBox(), 0, 1);
+            GridPane.setHgrow(getCountryComboBox(), Priority.ALWAYS);
+            mComboBoxPane.getChildren().add(getCountryComboBox());
+
+            Label stateLabel = new Label("State");
+            GridPane.setConstraints(stateLabel, 1, 0);
+            mComboBoxPane.getChildren().add(stateLabel);
+
+            GridPane.setConstraints(getStateComboBox(), 1, 1);
+            GridPane.setHgrow(getStateComboBox(), Priority.ALWAYS);
+            mComboBoxPane.getChildren().add(getStateComboBox());
+
+            Label countyLabel = new Label("County");
+            GridPane.setConstraints(countyLabel, 2, 0);
+            mComboBoxPane.getChildren().add(countyLabel);
+
+            GridPane.setConstraints(getCountyComboBox(), 2, 1);
+            GridPane.setHgrow(getCountyComboBox(), Priority.ALWAYS);
+            mComboBoxPane.getChildren().add(getCountyComboBox());
+        }
+
+        return mComboBoxPane;
     }
 
     private HBox getCredentialsBox()
@@ -625,8 +349,6 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         if(mCredentialsBox == null)
         {
             mCredentialsBox = new HBox();
-            mCredentialsBox.setAlignment(Pos.CENTER_RIGHT);
-            mCredentialsBox.setPadding(new Insets(5, 5, 5, 5));
             mCredentialsBox.setAlignment(Pos.CENTER_RIGHT);
             mCredentialsBox.setSpacing(5.0);
             mCredentialsBox.getChildren().add(new Label("User Name:"));
@@ -645,7 +367,8 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
     {
         if(mUserNameText == null)
         {
-            mUserNameText = new TextField(mRadioReference.getUserName());
+            mUserNameText = new TextField();
+            mUserNameText.textProperty().bind(mRadioReference.userNameProperty());
             mUserNameText.setDisable(true);
         }
 
@@ -657,6 +380,7 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         if(mAccountExpiresText == null)
         {
             mAccountExpiresText = new TextField();
+            mAccountExpiresText.textProperty().bind(mRadioReference.accountExpiresProperty());
             mAccountExpiresText.setDisable(true);
         }
 
@@ -669,7 +393,7 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         {
             mTestPassIcon = new IconNode(FontAwesome.CHECK);
             mTestPassIcon.setFill(Color.GREEN);
-            mTestPassIcon.visibleProperty().bind(mRadioReference.loggedOnProperty());
+            mTestPassIcon.visibleProperty().bind(mRadioReference.availableProperty());
         }
 
         return mTestPassIcon;
@@ -681,7 +405,7 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         {
             mTestFailIcon = new IconNode(FontAwesome.TIMES);
             mTestFailIcon.setFill(Color.RED);
-            mTestFailIcon.visibleProperty().bind(mRadioReference.loggedOnProperty().not());
+            mTestFailIcon.visibleProperty().bind(mRadioReference.availableProperty().not());
         }
 
         return mTestFailIcon;
@@ -703,69 +427,39 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         return mLoginButton;
     }
 
-    private SplitPane getSplitPane()
+    private void setCountry(Country country)
     {
-        if(mSplitPane == null)
+        if(country != null)
         {
-            VBox vbox = new VBox();
-            vbox.setPadding(new Insets(5,5,10,5));
-            vbox.setSpacing(5.0);
-            VBox.setVgrow(getCountryEntityBox(), Priority.SOMETIMES);
-            vbox.getChildren().add(getCountryEntityBox());
-            VBox.setVgrow(getStateEntityBox(), Priority.SOMETIMES);
-            vbox.getChildren().add(getStateEntityBox());
-            VBox.setVgrow(getCountyEntityBox(), Priority.SOMETIMES);
-            vbox.getChildren().add(getCountyEntityBox());
+            getStateComboBox().getItems().clear();
+            getCountyComboBox().getItems().clear();
+            int preferredStateId = mUserPreferences.getRadioReferencePreference().getPreferredStateId();
 
-            mSplitPane = new SplitPane();
-            mSplitPane.setOrientation(Orientation.VERTICAL);
-            mSplitPane.getItems().addAll(vbox, getFrequencyTableView());
+            ThreadPool.SCHEDULED.execute(() -> {
+                try
+                {
+                    final CountryInfo countryInfo = mRadioReference.getService().getCountryInfo(country.getCountryId());
+
+                    Platform.runLater(() -> {
+                        getNationalAgencyEditor().setAgencies(countryInfo.getAgencies());
+                        getStateComboBox().getItems().addAll(countryInfo.getStates());
+
+                        for(State state: mStateComboBox.getItems())
+                        {
+                            if(state.getStateId() == preferredStateId)
+                            {
+                                getStateComboBox().getSelectionModel().select(state);
+                                return;
+                            }
+                        }
+                    });
+                }
+                catch(RadioReferenceException rre)
+                {
+                    mLog.error("Error retrieving country information from radio reference - " + rre.getMessage());
+                }
+            });
         }
-
-        return mSplitPane;
-    }
-
-    /**
-     * Frequency table view for displaying frequency search results
-     * @return node
-     */
-    private FrequencyTableView getFrequencyTableView()
-    {
-        if(mFrequencyTableView == null)
-        {
-            mFrequencyTableView = new FrequencyTableView(mRadioReference);
-        }
-
-        return mFrequencyTableView;
-    }
-
-    /**
-     * Trunked radio system view for displaying a trunked system
-     * @return node
-     */
-    private TrunkedSystemView getTrunkedSystemView()
-    {
-        if(mTrunkedSystemView == null)
-        {
-            mTrunkedSystemView = new TrunkedSystemView(mRadioReference);
-        }
-
-        return mTrunkedSystemView;
-    }
-
-    private HBox getCountryBox()
-    {
-        if(mCountryBox == null)
-        {
-            mCountryBox = new HBox();
-            mCountryBox.setAlignment(Pos.CENTER_LEFT);
-            mCountryBox.setSpacing(5.0);
-            Label label = new Label("Country:");
-            mCountryBox.getChildren().add(label);
-            mCountryBox.getChildren().add(getCountryComboBox());
-        }
-
-        return mCountryBox;
     }
 
     private ComboBox<Country> getCountryComboBox()
@@ -773,49 +467,15 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         if(mCountryComboBox == null)
         {
             mCountryComboBox = new ComboBox<>();
-            mCountryComboBox.setPrefWidth(200);
-            mCountryComboBox.setOnAction(new EventHandler<ActionEvent>()
-            {
-                @Override
-                public void handle(ActionEvent event)
+            mCountryComboBox.setConverter(new CountryStringConverter());
+            mCountryComboBox.setMaxWidth(Double.MAX_VALUE);
+            mCountryComboBox.setOnAction(event -> {
+                Country selected = mCountryComboBox.getValue();
+                setCountry(selected);
+
+                if(selected != null)
                 {
-                    Country selected = mCountryComboBox.getValue();
-                    setCountry(selected);
-
-                    if(selected != null)
-                    {
-                        mUserPreferences.getRadioReferencePreference().setPreferredCountryId(selected.getCountryId());
-                    }
-                }
-            });
-            mCountryComboBox.setConverter(new StringConverter<Country>()
-            {
-                @Override
-                public String toString(Country country)
-                {
-                    if(country != null)
-                    {
-                        return country.getName();
-                    }
-
-                    return null;
-                }
-
-                @Override
-                public Country fromString(String string)
-                {
-                    if(string != null && !string.isEmpty())
-                    {
-                        for(Country country: mCountryComboBox.getItems())
-                        {
-                            if(country.getName().toLowerCase().contentEquals(string.toLowerCase()))
-                            {
-                                return country;
-                            }
-                        }
-                    }
-
-                    return null;
+                    mUserPreferences.getRadioReferencePreference().setPreferredCountryId(selected.getCountryId());
                 }
             });
         }
@@ -823,230 +483,103 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         return mCountryComboBox;
     }
 
-    public HBox getCountryEntityBox()
+    private void setState(State state)
     {
-        if(mCountryEntityBox == null)
-        {
-            VBox stateBox = new VBox();
-            stateBox.getChildren().addAll(new Label("States"), getStateListView());
-            VBox agencyBox = new VBox();
-            agencyBox.getChildren().addAll(new Label("Country-wide Agencies"), getCountryAgencyListView());
-            mCountryEntityBox = new HBox();
-            mCountryEntityBox.setSpacing(5.0);
-            HBox.setHgrow(stateBox, Priority.ALWAYS);
-            HBox.setHgrow(agencyBox, Priority.ALWAYS);
-            mCountryEntityBox.getChildren().addAll(stateBox, agencyBox);
-        }
+        getCountyComboBox().getItems().clear();
+        int preferredCountyId = mUserPreferences.getRadioReferencePreference().getPreferredCountyId();
 
-        return mCountryEntityBox;
-    }
-
-    public ListView<State> getStateListView()
-    {
-        if(mStateListView == null)
+        if(state != null)
         {
-            mStateListView = new ListView<>();
-            mStateListView.setCellFactory(new Callback<ListView<State>,ListCell<State>>()
-            {
-                @Override
-                public ListCell<State> call(ListView<State> param)
+            ThreadPool.SCHEDULED.execute(() -> {
+                try
                 {
-                    return new StateListCell();
+                    final StateInfo stateInfo = mRadioReference.getService().getStateInfo(state.getStateId());
+
+                    Platform.runLater(() -> {
+                        getStateAgencyEditor().setAgencies(stateInfo.getAgencies());
+                        getCountyComboBox().getItems().addAll(stateInfo.getCounties());
+
+                        for(County county: mCountyComboBox.getItems())
+                        {
+                            if(county.getCountyId() == preferredCountyId)
+                            {
+                                getCountyComboBox().getSelectionModel().select(county);
+                                return;
+                            }
+                        }
+                    });
                 }
-            });
-            mStateListView.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<State>()
-            {
-                @Override
-                public void changed(ObservableValue<? extends State> observable, State oldValue, State newValue)
+                catch(RadioReferenceException rre)
                 {
-                    setState(newValue);
-
-                    if(newValue != null)
-                    {
-                        mUserPreferences.getRadioReferencePreference().setPreferredStateId(newValue.getStateId());
-                    }
+                    mLog.error("Error retrieving state information from radio reference - " + rre.getMessage());
                 }
             });
         }
-
-        return mStateListView;
     }
 
-    public ListView<Agency> getCountryAgencyListView()
+    private ComboBox<State> getStateComboBox()
     {
-        if(mCountryAgencyListView == null)
+        if(mStateComboBox == null)
         {
-            mCountryAgencyListView = new ListView<>();
-            mCountryAgencyListView.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<Agency>()
-            {
-                @Override
-                public void changed(ObservableValue<? extends Agency> observable, Agency oldValue, Agency newValue)
+            mStateComboBox = new ComboBox<>();
+            mStateComboBox.setConverter(new StateStringConverter());
+            mStateComboBox.setMaxWidth(Double.MAX_VALUE);
+            mStateComboBox.setOnAction(event -> {
+                State selected = mStateComboBox.getValue();
+                setState(selected);
+
+                if(selected != null)
                 {
-                    setAgency(newValue);
-                }
-            });
-            mCountryAgencyListView.setCellFactory(new Callback<ListView<Agency>,ListCell<Agency>>()
-            {
-                @Override
-                public ListCell<Agency> call(ListView<Agency> param)
-                {
-                    return new AgencyListCell();
+                    mUserPreferences.getRadioReferencePreference().setPreferredStateId(selected.getStateId());
                 }
             });
         }
 
-        return mCountryAgencyListView;
+        return mStateComboBox;
     }
 
-    public HBox getStateEntityBox()
+    private void setCounty(County county)
     {
-        if(mStateEntityBox == null)
+        if(county != null)
         {
-            VBox stateBox = new VBox();
-            stateBox.getChildren().addAll(new Label("Counties"), getCountyListView());
-            VBox agencyBox = new VBox();
-            agencyBox.getChildren().addAll(new Label("State Agencies"), getStateAgencyListView());
-            mStateEntityBox = new HBox();
-            mStateEntityBox.setSpacing(5.0);
-            HBox.setHgrow(stateBox, Priority.ALWAYS);
-            HBox.setHgrow(agencyBox, Priority.ALWAYS);
-            mStateEntityBox.getChildren().addAll(stateBox, agencyBox);
-        }
-
-        return mStateEntityBox;
-    }
-
-    public ListView<County> getCountyListView()
-    {
-        if(mCountyListView == null)
-        {
-            mCountyListView = new ListView<>();
-            mCountyListView.setCellFactory(new Callback<ListView<County>,ListCell<County>>()
-            {
-                @Override
-                public ListCell<County> call(ListView<County> param)
+            ThreadPool.SCHEDULED.execute(() -> {
+                try
                 {
-                    return new CountyListCell();
+                    final CountyInfo countyInfo = mRadioReference.getService().getCountyInfo(county.getCountyId());
+
+                    Platform.runLater(() -> {
+                        getCountyAgencyEditor().setAgencies(countyInfo.getAgencies());
+                    });
+                }
+                catch(RadioReferenceException rre)
+                {
+                    mLog.error("Error retrieving county information from radio reference - " + rre.getMessage());
                 }
             });
-            mCountyListView.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<County>()
-            {
-                @Override
-                public void changed(ObservableValue<? extends County> observable, County oldValue, County newValue)
-                {
-                    setCounty(newValue);
+        }
+    }
 
-                    if(newValue != null)
-                    {
-                        mUserPreferences.getRadioReferencePreference().setPreferredCountyId(newValue.getCountyId());
-                    }
+    private ComboBox<County> getCountyComboBox()
+    {
+        if(mCountyComboBox == null)
+        {
+            mCountyComboBox = new ComboBox<>();
+            mCountyComboBox.setConverter(new CountyStringConverter());
+            mCountyComboBox.setMaxWidth(Double.MAX_VALUE);
+            mCountyComboBox.setOnAction(event -> {
+                County selected = mCountyComboBox.getValue();
+                setCounty(selected);
+
+                if(selected != null)
+                {
+                    mUserPreferences.getRadioReferencePreference().setPreferredCountyId(selected.getCountyId());
                 }
             });
         }
 
-        return mCountyListView;
+        return mCountyComboBox;
     }
 
-    public ListView<Agency> getStateAgencyListView()
-    {
-        if(mStateAgencyListView == null)
-        {
-            mStateAgencyListView = new ListView<>();
-            mStateAgencyListView.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<Agency>()
-            {
-                @Override
-                public void changed(ObservableValue<? extends Agency> observable, Agency oldValue, Agency newValue)
-                {
-                    setAgency(newValue);
-                }
-            });
-            mStateAgencyListView.setCellFactory(new Callback<ListView<Agency>,ListCell<Agency>>()
-            {
-                @Override
-                public ListCell<Agency> call(ListView<Agency> param)
-                {
-                    return new AgencyListCell();
-                }
-            });
-        }
-
-        return mStateAgencyListView;
-    }
-
-    public HBox getCountyEntityBox()
-    {
-        if(mCountyEntityBox == null)
-        {
-            VBox stateBox = new VBox();
-            stateBox.getChildren().addAll(new Label("Trunked Radio Systems"), getSystemListView());
-            VBox agencyBox = new VBox();
-            agencyBox.getChildren().addAll(new Label("County Agencies"), getCountyAgencyListView());
-            mCountyEntityBox = new HBox();
-            mCountyEntityBox.setSpacing(5.0);
-            HBox.setHgrow(stateBox, Priority.ALWAYS);
-            HBox.setHgrow(agencyBox, Priority.ALWAYS);
-            mCountyEntityBox.getChildren().addAll(stateBox, agencyBox);
-        }
-
-        return mCountyEntityBox;
-    }
-
-    public ListView<System> getSystemListView()
-    {
-        if(mSystemListView == null)
-        {
-            mSystemListView = new ListView<>();
-            mSystemListView.setCellFactory(new Callback<ListView<System>,ListCell<System>>()
-            {
-                @Override
-                public ListCell<System> call(ListView<System> param)
-                {
-                    return new SystemListCell();
-                }
-            });
-            mSystemListView.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<System>()
-            {
-                @Override
-                public void changed(ObservableValue<? extends System> observable, System oldValue, System newValue)
-                {
-                    setSystem(newValue);
-
-                    if(newValue != null)
-                    {
-                        mUserPreferences.getRadioReferencePreference().setPreferredSystemId(newValue.getSystemId());
-                    }
-                }
-            });
-        }
-
-        return mSystemListView;
-    }
-
-    public ListView<Agency> getCountyAgencyListView()
-    {
-        if(mCountyAgencyListView == null)
-        {
-            mCountyAgencyListView = new ListView<>();
-            mCountyAgencyListView.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<Agency>()
-            {
-                @Override
-                public void changed(ObservableValue<? extends Agency> observable, Agency oldValue, Agency newValue)
-                {
-                    setAgency(newValue);
-                }
-            });
-            mCountyAgencyListView.setCellFactory(new Callback<ListView<Agency>,ListCell<Agency>>()
-            {
-                @Override
-                public ListCell<Agency> call(ListView<Agency> param)
-                {
-                    return new AgencyListCell();
-                }
-            });
-        }
-
-        return mCountyAgencyListView;
-    }
 
     /**
      * Consumer interface method for receiving login credentials
@@ -1057,96 +590,99 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         if(authorizationInformation != null)
         {
             mRadioReference.setAuthorizationInformation(authorizationInformation);
+        }
+    }
 
-            if(mRadioReference.hasCredentials())
+    public class CountryStringConverter extends StringConverter<Country>
+    {
+        @Override
+        public String toString(Country country)
+        {
+            if(country != null)
             {
-                checkAccount();
-                refreshLookupTables();
-                refreshCountries();
+                return country.getName();
             }
-        }
-    }
 
-    public class StateListCell extends ListCell<State>
-    {
-        @Override
-        protected void updateItem(State item, boolean empty)
-        {
-            super.updateItem(item, empty);
-            setText((empty || item == null) ? null : item.getName());
-        }
-    }
-
-    public class CountyListCell extends ListCell<County>
-    {
-        @Override
-        protected void updateItem(County item, boolean empty)
-        {
-            super.updateItem(item, empty);
-            setText((empty || item == null) ? null : item.getName());
-        }
-    }
-
-    public class SystemListCell extends ListCell<System>
-    {
-        private HBox mHBox;
-        private Label mName;
-        private Label mProtocol;
-
-        public SystemListCell()
-        {
-            mHBox = new HBox();
-            mHBox.setMaxWidth(Double.MAX_VALUE);
-            mName = new Label();
-            mName.setMaxWidth(Double.MAX_VALUE);
-            mName.setAlignment(Pos.CENTER_LEFT);
-            mProtocol = new Label();
-            mProtocol.setMaxWidth(Double.MAX_VALUE);
-            mProtocol.setAlignment(Pos.CENTER_RIGHT);
-            HBox.setHgrow(mName, Priority.ALWAYS);
-            HBox.setHgrow(mProtocol, Priority.ALWAYS);
-            mHBox.getChildren().addAll(mName, mProtocol);
+            return null;
         }
 
         @Override
-        protected void updateItem(System item, boolean empty)
+        public Country fromString(String string)
         {
-            super.updateItem(item, empty);
-
-            setText(null);
-
-            if(empty || item == null)
+            if(string != null && !string.isEmpty())
             {
-                setGraphic(null);
-            }
-            else
-            {
-                mName.setText(item.getName());
-                Type type = mTypesMap.get(item.getTypeId());
-
-                if(type != null)
+                for(Country country: mCountryComboBox.getItems())
                 {
-                    mProtocol.setText(type.getName());
+                    if(country.getName().toLowerCase().contentEquals(string.toLowerCase()))
+                    {
+                        return country;
+                    }
                 }
-                else
-                {
-                    mProtocol.setText("Unknown");
-                }
-
-                setGraphic(mHBox);
             }
+
+            return null;
         }
     }
 
-    public class AgencyListCell extends ListCell<Agency>
+    public class StateStringConverter extends StringConverter<State>
     {
         @Override
-        protected void updateItem(Agency item, boolean empty)
+        public String toString(State state)
         {
-            super.updateItem(item, empty);
-            setText((empty || item == null) ? null : item.getName());
+            if(state != null)
+            {
+                return state.getName();
+            }
+
+            return null;
+        }
+
+        @Override
+        public State fromString(String string)
+        {
+            if(string != null && !string.isEmpty())
+            {
+                for(State state: mStateComboBox.getItems())
+                {
+                    if(state.getName().toLowerCase().contentEquals(string.toLowerCase()))
+                    {
+                        return state;
+                    }
+                }
+            }
+
+            return null;
         }
     }
 
+    public class CountyStringConverter extends StringConverter<County>
+    {
+        @Override
+        public String toString(County county)
+        {
+            if(county != null)
+            {
+                return county.getName();
+            }
 
+            return null;
+        }
+
+        @Override
+        public County fromString(String string)
+        {
+            if(string != null && !string.isEmpty())
+            {
+                for(County county: mCountyComboBox.getItems())
+                {
+                    if(county.getName().toLowerCase().contentEquals(string.toLowerCase()))
+                    {
+                        return county;
+                    }
+                }
+            }
+
+            return null;
+        }
+    }
 }

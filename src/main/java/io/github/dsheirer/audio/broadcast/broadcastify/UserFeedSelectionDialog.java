@@ -57,6 +57,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.List;
 
+@Deprecated
 public class UserFeedSelectionDialog extends JDialog implements DocumentListener
 {
     private final static Logger mLog = LoggerFactory.getLogger( UserFeedSelectionDialog.class );

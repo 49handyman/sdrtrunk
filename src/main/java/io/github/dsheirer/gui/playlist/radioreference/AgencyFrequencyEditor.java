@@ -22,6 +22,8 @@
 
 package io.github.dsheirer.gui.playlist.radioreference;
 
+import io.github.dsheirer.playlist.PlaylistManager;
+import io.github.dsheirer.preference.UserPreferences;
 import io.github.dsheirer.rrapi.RadioReferenceException;
 import io.github.dsheirer.rrapi.type.Category;
 import io.github.dsheirer.rrapi.type.Frequency;
@@ -36,13 +38,13 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.util.Callback;
@@ -57,64 +59,72 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Grid pane with components for visualizing and selecting categories of frequencies
+ * Grid pane with components for visualizing and selecting categories of frequencies for an agency
  */
-public class FrequencyTableView extends GridPane
+public class AgencyFrequencyEditor extends GridPane
 {
-    private static final Logger mLog = LoggerFactory.getLogger(FrequencyTableView.class);
-    private static final DecimalFormat FREQUENCY_FORMATTER = new DecimalFormat("0.00000");
+    private static final Logger mLog = LoggerFactory.getLogger(AgencyFrequencyEditor.class);
     private static final Category ALL_CATEGORIES = new AllCategories();
     private static final SubCategory ALL_SUB_CATEGORIES = new AllSubCategories();
 
+    private UserPreferences mUserPreferences;
     private RadioReference mRadioReference;
-    private Label mFrequencyTableLabel;
-    private Label mFrequencyTableNameLabel;
+    private PlaylistManager mPlaylistManager;
+    private Level mLevel;
     private ComboBox<Category> mCategoryComboBox;
     private ComboBox<SubCategory> mSubCategoryComboBox;
     private TableView<Frequency> mFrequencyTableView;
     private Label mPlaceholderLabel;
     private ProgressIndicator mProgressIndicator;
+    private FrequencyEditor mFrequencyEditor;
 
-    public FrequencyTableView(RadioReference radioReference)
+    public AgencyFrequencyEditor(UserPreferences userPreferences, RadioReference radioReference,
+                                 PlaylistManager playlistManager, Level level)
     {
+        mUserPreferences = userPreferences;
         mRadioReference = radioReference;
+        mPlaylistManager = playlistManager;
+        mLevel = level;
 
         setPadding(new Insets(5, 5, 5,5));
-        setHgap(5.0);
-        setVgap(5.0);
+        setVgap(10);
+        setHgap(10);
+        setMaxHeight(Double.MAX_VALUE);
 
-        GridPane.setConstraints(getFrequencyTableLabel(), 0, 0);
-        GridPane.setHalignment(getFrequencyTableLabel(), HPos.RIGHT);
-        getChildren().add(getFrequencyTableLabel());
+        int row = 0;
 
-        GridPane.setConstraints(getFrequencyTableNameLabel(), 1, 0);
-        GridPane.setHgrow(getFrequencyTableNameLabel(), Priority.ALWAYS);
-        getChildren().add(getFrequencyTableNameLabel());
+        ColumnConstraints column1 = new ColumnConstraints();
+        ColumnConstraints column2 = new ColumnConstraints();
+        ColumnConstraints column3 = new ColumnConstraints();
+        column3.setPercentWidth(40);
+        getColumnConstraints().addAll(column1, column2, column3);
 
-        Label categoryLabel = new Label("Category:");
-        categoryLabel.setAlignment(Pos.CENTER_RIGHT);
-        GridPane.setConstraints(categoryLabel, 0, 1);
+        Label categoryLabel = new Label("Category");
+        GridPane.setConstraints(categoryLabel, 0, row);
         GridPane.setHalignment(categoryLabel, HPos.RIGHT);
         getChildren().add(categoryLabel);
 
-        GridPane.setConstraints(getCategoryComboBox(), 1, 1);
+        GridPane.setConstraints(getCategoryComboBox(), 1, row);
         GridPane.setHgrow(getCategoryComboBox(), Priority.ALWAYS);
         getChildren().add(getCategoryComboBox());
 
-        Label subCategoryLabel = new Label("Sub-Category:");
-        subCategoryLabel.setAlignment(Pos.CENTER_RIGHT);
-        GridPane.setConstraints(subCategoryLabel, 0, 2);
+        Label subCategoryLabel = new Label("Sub-Category");
+        GridPane.setConstraints(subCategoryLabel, 0, ++row);
         GridPane.setHalignment(subCategoryLabel, HPos.RIGHT);
         getChildren().add(subCategoryLabel);
 
-        GridPane.setConstraints(getSubCategoryComboBox(), 1, 2);
+        GridPane.setConstraints(getSubCategoryComboBox(), 1, row);
         GridPane.setHgrow(getSubCategoryComboBox(), Priority.ALWAYS);
         getChildren().add(getSubCategoryComboBox());
 
-        GridPane.setConstraints(getFrequencyTableView(), 0, 3, 2, 6);
+        GridPane.setConstraints(getFrequencyTableView(), 0, ++row, 2, 1);
         GridPane.setHgrow(getFrequencyTableView(), Priority.ALWAYS);
-
+        GridPane.setVgrow(getFrequencyTableView(), Priority.ALWAYS);
         getChildren().add(getFrequencyTableView());
+
+        GridPane.setConstraints(getFrequencyEditor(), 2, 0, 1, 3);
+        GridPane.setHgrow(getFrequencyEditor(), Priority.ALWAYS);
+        getChildren().add(getFrequencyEditor());
     }
 
     private void setLoading(boolean loading)
@@ -125,76 +135,47 @@ public class FrequencyTableView extends GridPane
         }
         else
         {
-            Platform.runLater(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    getFrequencyTableView().setPlaceholder(loading ? getProgressIndicator() : getPlaceholderLabel());
-                }
-            });
+            Platform.runLater(() -> getFrequencyTableView()
+                .setPlaceholder(loading ? getProgressIndicator() : getPlaceholderLabel()));
         }
     }
 
-    public void clear()
+    private void clear()
     {
-        if(Platform.isFxApplicationThread())
+        getCategoryComboBox().getItems().clear();
+        getSubCategoryComboBox().getItems().clear();
+        getFrequencyTableView().getItems().clear();
+    }
+
+    public void setCategories(List<Category> categories)
+    {
+        clear();
+
+        if(categories != null)
         {
-            getFrequencyTableNameLabel().setText(null);
-            getCategoryComboBox().getItems().clear();
-            getSubCategoryComboBox().getItems().clear();
-            getFrequencyTableView().getItems().clear();
+            Collections.sort(categories, (o1, o2) -> o1.getName().compareTo(o2.getName()));
+        }
+
+        if(categories != null && !categories.isEmpty())
+        {
+            getCategoryComboBox().getItems().add(ALL_CATEGORIES);
+            getCategoryComboBox().getItems().addAll(categories);
+            getCategoryComboBox().getSelectionModel().select(ALL_CATEGORIES);
         }
         else
         {
-            Platform.runLater(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    getFrequencyTableNameLabel().setText(null);
-                    getCategoryComboBox().getItems().clear();
-                    getSubCategoryComboBox().getItems().clear();
-                    getFrequencyTableView().getItems().clear();
-                }
-            });
+            setLoading(false);
         }
     }
 
-    public void update(String label, String name, List<Category> categories)
+    private FrequencyEditor getFrequencyEditor()
     {
-        if(categories != null)
+        if(mFrequencyEditor == null)
         {
-            Collections.sort(categories, new Comparator<Category>()
-            {
-                @Override
-                public int compare(Category o1, Category o2)
-                {
-                    return o1.getName().compareTo(o2.getName());
-                }
-            });
+            mFrequencyEditor = new FrequencyEditor(mUserPreferences, mRadioReference, mPlaylistManager, mLevel);
         }
 
-        Platform.runLater(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                clear();
-                getFrequencyTableLabel().setText(label);
-                getFrequencyTableNameLabel().setText(name);
-                if(categories != null && !categories.isEmpty())
-                {
-                    getCategoryComboBox().getItems().add(ALL_CATEGORIES);
-                    getCategoryComboBox().getItems().addAll(categories);
-                    getCategoryComboBox().getSelectionModel().select(ALL_CATEGORIES);
-                }
-                else
-                {
-                    setLoading(false);
-                }
-            }
-        });
+        return mFrequencyEditor;
     }
 
     private ProgressIndicator getProgressIndicator()
@@ -212,7 +193,7 @@ public class FrequencyTableView extends GridPane
     {
         if(mPlaceholderLabel == null)
         {
-            mPlaceholderLabel = new Label("No Frequencies Available");
+            mPlaceholderLabel = new Label("Select an Agency to View Frequency Records");
         }
 
         return mPlaceholderLabel;
@@ -223,7 +204,13 @@ public class FrequencyTableView extends GridPane
         if(mFrequencyTableView == null)
         {
             mFrequencyTableView = new TableView<>();
+            mFrequencyTableView.setMaxHeight(Double.MAX_VALUE);
             mFrequencyTableView.setPlaceholder(getPlaceholderLabel());
+
+            TableColumn descriptionColumn = new TableColumn();
+            descriptionColumn.setText("Description");
+            descriptionColumn.setCellValueFactory(new PropertyValueFactory<>("description"));
+            descriptionColumn.setPrefWidth(300);
 
             TableColumn frequencyColumn = new TableColumn();
             frequencyColumn.setText("Frequency");
@@ -235,46 +222,63 @@ public class FrequencyTableView extends GridPane
             modeColumn.setCellValueFactory(new ModeCellValueFactory());
             modeColumn.setPrefWidth(100);
 
-            TableColumn toneColumn = new TableColumn();
-            toneColumn.setText("Tone");
-            toneColumn.setCellValueFactory(new PropertyValueFactory<>("tone"));
-            toneColumn.setPrefWidth(100);
-
-            TableColumn alphaTagColumn = new TableColumn();
-            alphaTagColumn.setText("Alpha Tag");
-            alphaTagColumn.setCellValueFactory(new PropertyValueFactory<>("alphaTag"));
-            alphaTagColumn.setPrefWidth(125);
-
-            TableColumn descriptionColumn = new TableColumn();
-            descriptionColumn.setText("Description");
-            descriptionColumn.setCellValueFactory(new PropertyValueFactory<>("description"));
-            descriptionColumn.setPrefWidth(525);
-
-            mFrequencyTableView.getColumns().addAll(frequencyColumn, modeColumn, toneColumn, alphaTagColumn, descriptionColumn);
+            mFrequencyTableView.getColumns().addAll(descriptionColumn, frequencyColumn, modeColumn);
+            mFrequencyTableView.getSelectionModel().selectedItemProperty()
+                .addListener((observable, oldValue, selected) -> {
+                    if(selected != null)
+                    {
+                        SubCategory subCategory = getSubCategory(selected.getSubCategoryId());
+                        Category category = getCategory(subCategory);
+                        getFrequencyEditor().setItem(selected, category, subCategory);
+                    }
+                    else
+                    {
+                        getFrequencyEditor().setItem(null, null, null);
+                    }
+                });
         }
 
         return mFrequencyTableView;
     }
 
-    private Label getFrequencyTableLabel()
+    /**
+     * Returns the category parent for the specified sub-category from the current list of categories.
+     * @return category or null
+     */
+    private Category getCategory(SubCategory subCategory)
     {
-        if(mFrequencyTableLabel == null)
+        if(subCategory != null)
         {
-            mFrequencyTableLabel = new Label();
-            mFrequencyTableLabel.setAlignment(Pos.CENTER_RIGHT);
+            for(Category category: getCategoryComboBox().getItems())
+            {
+                for(SubCategory sub: category.getSubCategories())
+                {
+                    if(sub == subCategory)
+                    {
+                        return category;
+                    }
+                }
+            }
         }
 
-        return mFrequencyTableLabel;
+        return null;
     }
 
-    private Label getFrequencyTableNameLabel()
+    /**
+     * Returns the sub-category that matches the id from the current list of sub-categories
+     * @return sub-category or null
+     */
+    private SubCategory getSubCategory(int id)
     {
-        if(mFrequencyTableNameLabel == null)
+        for(SubCategory subCategory: getSubCategoryComboBox().getItems())
         {
-            mFrequencyTableNameLabel = new Label();
+            if(subCategory.getSubCategoryId() == id)
+            {
+                return subCategory;
+            }
         }
 
-        return mFrequencyTableNameLabel;
+        return null;
     }
 
     private ComboBox<Category> getCategoryComboBox()
@@ -283,47 +287,42 @@ public class FrequencyTableView extends GridPane
         {
             mCategoryComboBox = new ComboBox<>();
             mCategoryComboBox.setMaxWidth(Double.MAX_VALUE);
-            mCategoryComboBox.setOnAction(new EventHandler<ActionEvent>()
-            {
-                @Override
-                public void handle(ActionEvent event)
+            mCategoryComboBox.setOnAction(event -> {
+                getFrequencyTableView().getItems().clear();
+                getSubCategoryComboBox().getItems().clear();
+                Category selected = mCategoryComboBox.getSelectionModel().getSelectedItem();
+
+                if(selected != null)
                 {
-                    getFrequencyTableView().getItems().clear();
-                    getSubCategoryComboBox().getItems().clear();
-                    Category selected = mCategoryComboBox.getSelectionModel().getSelectedItem();
+                    List<SubCategory> subCategories = new ArrayList<>();
 
-                    if(selected != null)
+                    if(selected.equals(ALL_CATEGORIES))
                     {
-                        List<SubCategory> subCategories = new ArrayList<>();
-
-                        if(selected.equals(ALL_CATEGORIES))
+                        for(Category category: getCategoryComboBox().getItems())
                         {
-                            for(Category category: getCategoryComboBox().getItems())
+                            if(category.getSubCategories() != null)
                             {
-                                if(category.getSubCategories() != null)
-                                {
-                                    subCategories.addAll(category.getSubCategories());
-                                }
+                                subCategories.addAll(category.getSubCategories());
                             }
                         }
-                        else if(selected.getSubCategories() != null)
-                        {
-                            subCategories.addAll(selected.getSubCategories());
-                        }
-
-                        Collections.sort(subCategories, new Comparator<SubCategory>()
-                        {
-                            @Override
-                            public int compare(SubCategory o1, SubCategory o2)
-                            {
-                                return o1.getName().compareTo(o2.getName());
-                            }
-                        });
-
-                        getSubCategoryComboBox().getItems().add(ALL_SUB_CATEGORIES);
-                        getSubCategoryComboBox().getItems().addAll(subCategories);
-                        getSubCategoryComboBox().getSelectionModel().select(ALL_SUB_CATEGORIES);
                     }
+                    else if(selected.getSubCategories() != null)
+                    {
+                        subCategories.addAll(selected.getSubCategories());
+                    }
+
+                    Collections.sort(subCategories, new Comparator<SubCategory>()
+                    {
+                        @Override
+                        public int compare(SubCategory o1, SubCategory o2)
+                        {
+                            return o1.getName().compareTo(o2.getName());
+                        }
+                    });
+
+                    getSubCategoryComboBox().getItems().add(ALL_SUB_CATEGORIES);
+                    getSubCategoryComboBox().getItems().addAll(subCategories);
+                    getSubCategoryComboBox().getSelectionModel().select(ALL_SUB_CATEGORIES);
                 }
             });
             mCategoryComboBox.setConverter(new StringConverter<Category>()

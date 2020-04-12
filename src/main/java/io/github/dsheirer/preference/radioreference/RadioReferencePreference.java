@@ -22,9 +22,12 @@
 
 package io.github.dsheirer.preference.radioreference;
 
+import io.github.dsheirer.gui.playlist.radioreference.Level;
 import io.github.dsheirer.preference.Preference;
 import io.github.dsheirer.preference.PreferenceType;
+import io.github.dsheirer.rrapi.type.AuthorizationInformation;
 import io.github.dsheirer.sample.Listener;
+import io.github.dsheirer.service.radioreference.RadioReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,16 +49,26 @@ public class RadioReferencePreference extends Preference
     private static final String PREFERRED_STATE_ID = "preferred.state";
     private static final String PREFERRED_COUNTY_ID = "preferred.county";
     private static final String PREFERRED_SYSTEM_ID = "preferred.system";
-    private static final String PREFERRED_AGENCY_ID = "preferred.agency";
+    private static final String PREFERRED_AGENCY_ID_NATIONAL = "preferred.agency.national";
+    private static final String PREFERRED_AGENCY_ID_STATE = "preferred.agency.state";
+    private static final String PREFERRED_AGENCY_ID_COUNTY = "preferred.agency.county";
+    private static final String SHOW_CHANNEL_EDITOR_NATIONAL = "create.and.show.editor.national";
+    private static final String SHOW_CHANNEL_EDITOR_STATE = "create.and.show.editor.state";
+    private static final String SHOW_CHANNEL_EDITOR_COUNTY = "create.and.show.editor.county";
 
     private String mUserName;
     private String mPassword;
     private Boolean mStoreCredentials;
     private Boolean mShowPassword;
+    private Boolean mShowChannelEditorNational;
+    private Boolean mShowChannelEditorState;
+    private Boolean mShowChannelEditorCounty;
     private int mPreferredCountryId = INVALID_ID;
     private int mPreferredStateId = INVALID_ID;
     private int mPreferredCountyId = INVALID_ID;
-    private int mPreferredAgencyId = INVALID_ID;
+    private int mPreferredAgencyIdNational = INVALID_ID;
+    private int mPreferredAgencyIdState = INVALID_ID;
+    private int mPreferredAgencyIdCounty = INVALID_ID;
     private int mPreferredSystemId = INVALID_ID;
 
     /**
@@ -97,6 +110,23 @@ public class RadioReferencePreference extends Preference
     public boolean hasStoredCredentials()
     {
         return mPreferences.get(USER_NAME, null) != null || mPreferences.get(PASSWORD, null) != null;
+    }
+
+    /**
+     * Creates an authorization information instance with stored login credentials when available.
+     * @return information or null if there are no stored credentials.
+     */
+    public AuthorizationInformation getAuthorizationInformation()
+    {
+        if(hasStoredCredentials())
+        {
+            String username = getUserName();
+            String password = getPassword();
+
+            return RadioReference.getAuthorizatonInformation(username, password);
+        }
+
+        return null;
     }
 
     /**
@@ -212,6 +242,7 @@ public class RadioReferencePreference extends Preference
     {
         mShowPassword = show;
         mPreferences.putBoolean(SHOW_PASSWORD, show);
+        notifyPreferenceUpdated();
     }
 
     /**
@@ -232,6 +263,7 @@ public class RadioReferencePreference extends Preference
     {
         mPreferredCountryId = countryId;
         mPreferences.putInt(PREFERRED_COUNTRY_ID, countryId);
+        notifyPreferenceUpdated();
     }
 
     /**
@@ -251,6 +283,7 @@ public class RadioReferencePreference extends Preference
     {
         mPreferredStateId = state;
         mPreferences.putInt(PREFERRED_STATE_ID, mPreferredStateId);
+        notifyPreferenceUpdated();
     }
 
     /**
@@ -270,6 +303,7 @@ public class RadioReferencePreference extends Preference
     {
         mPreferredCountyId = county;
         mPreferences.putInt(PREFERRED_COUNTY_ID, mPreferredCountyId);
+        notifyPreferenceUpdated();
     }
 
     /**
@@ -289,24 +323,121 @@ public class RadioReferencePreference extends Preference
     {
         mPreferredSystemId = systemId;
         mPreferences.putInt(PREFERRED_SYSTEM_ID, mPreferredSystemId);
+        notifyPreferenceUpdated();
     }
 
     /**
-     * Preferred agency to use with the service
+     * Preferred country agency to use with the service
      */
-    public int getPreferredAgencyId()
+    public int getPreferredAgencyIdNational()
     {
-        if(mPreferredAgencyId < 0)
+        if(mPreferredAgencyIdNational < 0)
         {
-            mPreferredAgencyId = mPreferences.getInt(PREFERRED_AGENCY_ID, INVALID_ID);
+            mPreferredAgencyIdNational = mPreferences.getInt(PREFERRED_AGENCY_ID_NATIONAL, INVALID_ID);
         }
 
-        return mPreferredAgencyId;
+        return mPreferredAgencyIdNational;
     }
 
-    public void setPreferredAgencyId(int agencyId)
+    public void setPreferredAgencyIdNational(int agencyId)
     {
-        mPreferredAgencyId = agencyId;
-        mPreferences.putInt(PREFERRED_AGENCY_ID, mPreferredAgencyId);
+        mPreferredAgencyIdNational = agencyId;
+        mPreferences.putInt(PREFERRED_AGENCY_ID_NATIONAL, mPreferredAgencyIdNational);
+        notifyPreferenceUpdated();
+    }
+
+    /**
+     * Preferred state agency to use with the service
+     */
+    public int getPreferredAgencyIdState()
+    {
+        if(mPreferredAgencyIdState < 0)
+        {
+            mPreferredAgencyIdState = mPreferences.getInt(PREFERRED_AGENCY_ID_STATE, INVALID_ID);
+        }
+
+        return mPreferredAgencyIdState;
+    }
+
+    public void setPreferredAgencyIdState(int agencyId)
+    {
+        mPreferredAgencyIdState = agencyId;
+        mPreferences.putInt(PREFERRED_AGENCY_ID_STATE, mPreferredAgencyIdState);
+        notifyPreferenceUpdated();
+    }
+
+    /**
+     * Preferred county agency to use with the service
+     */
+    public int getPreferredAgencyIdCounty()
+    {
+        if(mPreferredAgencyIdCounty < 0)
+        {
+            mPreferredAgencyIdCounty = mPreferences.getInt(PREFERRED_AGENCY_ID_COUNTY, INVALID_ID);
+        }
+
+        return mPreferredAgencyIdCounty;
+    }
+
+    public void setPreferredAgencyIdCounty(int agencyId)
+    {
+        mPreferredAgencyIdCounty = agencyId;
+        mPreferences.putInt(PREFERRED_AGENCY_ID_COUNTY, mPreferredAgencyIdCounty);
+        notifyPreferenceUpdated();
+    }
+
+    /**
+     * Preference for showing a channel editor after creating a national agency channel
+     */
+    public boolean getShowChannelEditor(Level level)
+    {
+        switch(level)
+        {
+            case NATIONAL:
+                if(mShowChannelEditorNational == null)
+                {
+                    mShowChannelEditorNational = mPreferences.getBoolean(SHOW_CHANNEL_EDITOR_NATIONAL, true);
+                }
+
+                return mShowChannelEditorNational;
+            case STATE:
+                if(mShowChannelEditorState == null)
+                {
+                    mShowChannelEditorState = mPreferences.getBoolean(SHOW_CHANNEL_EDITOR_STATE, true);
+                }
+
+                return mShowChannelEditorState;
+            case COUNTY:
+            default:
+                if(mShowChannelEditorCounty == null)
+                {
+                    mShowChannelEditorCounty = mPreferences.getBoolean(SHOW_CHANNEL_EDITOR_COUNTY, true);
+                }
+
+                return mShowChannelEditorCounty;
+        }
+    }
+
+    public void setShowChannelEditor(boolean show, Level level)
+    {
+        switch(level)
+        {
+            case NATIONAL:
+                mShowChannelEditorNational = show;
+                mPreferences.putBoolean(SHOW_CHANNEL_EDITOR_NATIONAL, mShowChannelEditorNational);
+                notifyPreferenceUpdated();
+                break;
+            case STATE:
+                mShowChannelEditorState = show;
+                mPreferences.putBoolean(SHOW_CHANNEL_EDITOR_STATE, mShowChannelEditorState);
+                notifyPreferenceUpdated();
+                break;
+            case COUNTY:
+            default:
+                mShowChannelEditorCounty = show;
+                mPreferences.putBoolean(SHOW_CHANNEL_EDITOR_COUNTY, mShowChannelEditorCounty);
+                notifyPreferenceUpdated();
+                break;
+        }
     }
 }

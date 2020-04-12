@@ -26,6 +26,7 @@ import io.github.dsheirer.eventbus.MyEventBus;
 import io.github.dsheirer.gui.playlist.alias.AliasEditor;
 import io.github.dsheirer.gui.playlist.alias.AliasTabRequest;
 import io.github.dsheirer.gui.playlist.channel.ChannelEditor;
+import io.github.dsheirer.gui.playlist.channel.ChannelTabRequest;
 import io.github.dsheirer.gui.playlist.manager.PlaylistManagerEditor;
 import io.github.dsheirer.gui.playlist.radioreference.RadioReferenceEditor;
 import io.github.dsheirer.gui.playlist.streaming.StreamingEditor;
@@ -59,6 +60,7 @@ public class PlaylistEditor extends BorderPane
     private Tab mRadioReferenceTab;
     private Tab mStreamingTab;
     private AliasEditor mAliasEditor;
+    private ChannelEditor mChannelEditor;
 
     /**
      * Constructs an instance
@@ -89,6 +91,13 @@ public class PlaylistEditor extends BorderPane
                 {
                     getTabPane().getSelectionModel().select(getAliasesTab());
                     getAliasEditor().process((AliasTabRequest)request);
+                }
+                break;
+            case CHANNEL:
+                if(request instanceof ChannelTabRequest)
+                {
+                    getTabPane().getSelectionModel().select(getChannelsTab());
+                    getChannelEditor().process((ChannelTabRequest)request);
                 }
                 break;
             case PLAYLIST:
@@ -165,10 +174,20 @@ public class PlaylistEditor extends BorderPane
         if(mChannelsTab == null)
         {
             mChannelsTab = new Tab("Channels");
-            mChannelsTab.setContent(new ChannelEditor(mPlaylistManager));
+            mChannelsTab.setContent(getChannelEditor());
         }
 
         return mChannelsTab;
+    }
+
+    private ChannelEditor getChannelEditor()
+    {
+        if(mChannelEditor == null)
+        {
+            mChannelEditor = new ChannelEditor(mPlaylistManager);
+        }
+
+        return mChannelEditor;
     }
 
     private Tab getPlaylistsTab()
@@ -187,7 +206,7 @@ public class PlaylistEditor extends BorderPane
         if(mRadioReferenceTab == null)
         {
             mRadioReferenceTab = new Tab("Radio Reference");
-            mRadioReferenceTab.setContent(new RadioReferenceEditor(mUserPreferences, mPlaylistManager.getRadioReference()));
+            mRadioReferenceTab.setContent(new RadioReferenceEditor(mUserPreferences, mPlaylistManager));
         }
 
         return mRadioReferenceTab;

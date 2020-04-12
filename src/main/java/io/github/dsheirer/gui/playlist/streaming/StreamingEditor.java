@@ -101,7 +101,7 @@ public class StreamingEditor extends SplitPane
     {
         mPlaylistManager = playlistManager;
         mUnknownEditor = new UnknownStreamEditor(mPlaylistManager);
-        mPlaylistManager.getRadioReference().loggedOnProperty()
+        mPlaylistManager.getRadioReference().availableProperty()
             .addListener((observable, oldValue, newValue) -> refreshBroadcastifyStreams());
         refreshBroadcastifyStreams();
 
@@ -237,7 +237,7 @@ public class StreamingEditor extends SplitPane
      */
     private void refreshBroadcastifyStreams()
     {
-        if(mPlaylistManager.getRadioReference().loggedOnProperty().get())
+        if(mPlaylistManager.getRadioReference().availableProperty().get())
         {
             ThreadPool.SCHEDULED.submit(new Runnable()
             {
@@ -274,7 +274,7 @@ public class StreamingEditor extends SplitPane
         if(mRadioReferenceLoginLabel == null)
         {
             mRadioReferenceLoginLabel = new Label("Note: use Radio Reference tab to login and access Broadcastify stream configuration(s)");
-            mRadioReferenceLoginLabel.visibleProperty().bind(mPlaylistManager.getRadioReference().loggedOnProperty().not());
+            mRadioReferenceLoginLabel.visibleProperty().bind(mPlaylistManager.getRadioReference().availableProperty().not());
         }
 
         return mRadioReferenceLoginLabel;
