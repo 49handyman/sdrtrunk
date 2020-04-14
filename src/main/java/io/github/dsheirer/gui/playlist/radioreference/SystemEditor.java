@@ -19,13 +19,41 @@
 
 package io.github.dsheirer.gui.playlist.radioreference;
 
+import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
+import io.github.dsheirer.rrapi.RadioReferenceException;
+import io.github.dsheirer.rrapi.type.CountyInfo;
+import io.github.dsheirer.rrapi.type.Flavor;
+import io.github.dsheirer.rrapi.type.Site;
 import io.github.dsheirer.rrapi.type.System;
+import io.github.dsheirer.rrapi.type.SystemInformation;
+import io.github.dsheirer.rrapi.type.Tag;
+import io.github.dsheirer.rrapi.type.Talkgroup;
+import io.github.dsheirer.rrapi.type.TalkgroupCategory;
+import io.github.dsheirer.rrapi.type.Type;
+import io.github.dsheirer.rrapi.type.Voice;
 import io.github.dsheirer.service.radioreference.RadioReference;
+import io.github.dsheirer.util.ThreadPool;
+import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Radio Reference editor for trunked radio systems
@@ -36,80 +64,217 @@ public class SystemEditor extends VBox
 
     private UserPreferences mUserPreferences;
     private RadioReference mRadioReference;
-    private ListView<System> mStateSystemComboBox;
-    private ListView<System> mCountySystemComboBox;
-    private TrunkedSystemView mTrunkedSystemView;
+    private PlaylistManager mPlaylistManager;
+    private Level mLevel;
+    private ListView<System> mSystemListView;
+    private SystemFrequencyEditor mSystemFrequencyEditor;
+    private IntegerProperty mSystemCountProperty = new SimpleIntegerProperty();
+    private TabPane mTabPane;
+    private Tab mSystemTab;
+    private Tab mTalkgroupTab;
+    private SystemSiteSelectionEditor mSystemSiteSelectionEditor;
+    private SystemTalkgroupSelectionEditor mSystemTalkgroupSelectionEditor;
+    private Map<Integer,Tag> mTagMap;
 
     /**
      * Constructs an instance
      * @param userPreferences for preferences
      * @param radioReference to access radio reference
+     * @param playlistManager
+     * @param level STATE or COUNTY
      */
-    public SystemEditor(UserPreferences userPreferences, RadioReference radioReference)
+    public SystemEditor(UserPreferences userPreferences, RadioReference radioReference,
+                        PlaylistManager playlistManager, Level level)
     {
         mUserPreferences = userPreferences;
         mRadioReference = radioReference;
+        mPlaylistManager = playlistManager;
+        mLevel = level;
+        mSystemCountProperty.bind(Bindings.size(getSystemListView().getItems()));
 
-
+        setPadding(new Insets(10,10,10,10));
         setSpacing(10);
-//        VBox.setVgrow(getSplitPane(), Priority.ALWAYS);
-//        getChildren().addAll(getCountryBox(), getSplitPane());
+        VBox.setVgrow(getSystemFrequencyEditor(), Priority.ALWAYS);
+        getChildren().addAll(getSystemListView(), getTabPane());
     }
 
-//    public ListView<System> getStateSystemComboBox()
-//    {
-//        if(mStateSystemComboBox == null)
-//        {
-//            mStateSystemComboBox = new ListView<>();
-//            mStateSystemComboBox.setCellFactory(param -> new SystemListCell());
-//            mStateSystemComboBox.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
-//                setSystem(newValue);
-//
-//                if(newValue != null)
-//                {
-//                    mUserPreferences.getRadioReferencePreference().setPreferredSystemId(newValue.getSystemId());
-//                }
-//            });
-//        }
-//
-//        return mStateSystemComboBox;
-//    }
-//
-//    public ListView<System> getCountySystemComboBox()
-//    {
-//        if(mCountySystemComboBox == null)
-//        {
-//            mCountySystemComboBox = new ListView<>();
-//            mCountySystemComboBox.setCellFactory(param -> new SystemListCell());
-//            mCountySystemComboBox.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
-//                setSystem(newValue);
-//
-//                if(newValue != null)
-//                {
-//                    mUserPreferences.getRadioReferencePreference().setPreferredSystemId(newValue.getSystemId());
-//                }
-//            });
-//        }
-//
-//        return mCountySystemComboBox;
-//    }
-//
-//
-//    /**
-//     * Trunked radio system view for displaying a trunked system
-//     * @return node
-//     */
-//    private TrunkedSystemView getTrunkedSystemView()
-//    {
-//        if(mTrunkedSystemView == null)
-//        {
-//            mTrunkedSystemView = new TrunkedSystemView(mRadioReference);
-//        }
-//
-//        return mTrunkedSystemView;
-//    }
-//
-//
+    /**
+     * Observable count of systems in the editor
+     */
+    public IntegerProperty systemCountProperty()
+    {
+        return mSystemCountProperty;
+    }
+
+    /**
+     * Sets the list of displayed systems and clears out any existing systems.  Auto-selects a system if the user
+     * has selected that system before.
+     *
+     * Note: this should only be invoked on the FX application thread
+     *
+     * @param systems to display
+     */
+    public void setSystems(List<System> systems)
+    {
+        Collections.sort(systems, (o1, o2) -> o1.getName().compareTo(o2.getName()));
+        getSystemListView().getItems().clear();
+        getSystemListView().getItems().addAll(systems);
+
+        int preferredSystemId = mUserPreferences.getRadioReferencePreference().getPreferredSystemId(mLevel);
+
+        for(System system: getSystemListView().getItems())
+        {
+            if(system.getSystemId() == preferredSystemId)
+            {
+                getSystemListView().getSelectionModel().select(system);
+                getSystemListView().scrollTo(system);
+                return;
+            }
+        }
+    }
+
+    private TabPane getTabPane()
+    {
+        if(mTabPane == null)
+        {
+            mTabPane = new TabPane();
+            mTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+            mTabPane.getTabs().addAll(getSystemTab(), getTalkgroupTab());
+        }
+
+        return mTabPane;
+    }
+
+    private SystemSiteSelectionEditor getSystemSiteSelectionEditor()
+    {
+        if(mSystemSiteSelectionEditor == null)
+        {
+            mSystemSiteSelectionEditor = new SystemSiteSelectionEditor(mUserPreferences, mPlaylistManager);
+        }
+
+        return mSystemSiteSelectionEditor;
+    }
+
+    private Tab getSystemTab()
+    {
+        if(mSystemTab == null)
+        {
+            mSystemTab = new Tab("System View");
+            mSystemTab.setContent(getSystemSiteSelectionEditor());
+        }
+
+        return mSystemTab;
+    }
+
+    private SystemTalkgroupSelectionEditor getSystemTalkgroupSelectionEditor()
+    {
+        if(mSystemTalkgroupSelectionEditor == null)
+        {
+            mSystemTalkgroupSelectionEditor = new SystemTalkgroupSelectionEditor(mUserPreferences, mPlaylistManager);
+        }
+
+        return mSystemTalkgroupSelectionEditor;
+    }
+
+    private Tab getTalkgroupTab()
+    {
+        if(mTalkgroupTab == null)
+        {
+            mTalkgroupTab = new Tab("Talkgroup View");
+            mTalkgroupTab.setContent(getSystemTalkgroupSelectionEditor());
+        }
+
+        return mTalkgroupTab;
+    }
+
+    private ListView<System> getSystemListView()
+    {
+        if(mSystemListView == null)
+        {
+            mSystemListView = new ListView<>();
+            mSystemListView.setPrefHeight(100);
+            mSystemListView.setCellFactory(param -> new SystemListCell());
+            mSystemListView.getSelectionModel().selectedItemProperty()
+                .addListener((observable, oldValue, newValue) -> setSystem(newValue));
+        }
+
+        return mSystemListView;
+    }
+
+    /**
+     * Trunked radio system view for displaying a trunked system
+     * @return node
+     */
+    private SystemFrequencyEditor getSystemFrequencyEditor()
+    {
+        if(mSystemFrequencyEditor == null)
+        {
+            mSystemFrequencyEditor = new SystemFrequencyEditor(mRadioReference);
+        }
+
+        return mSystemFrequencyEditor;
+    }
+
+    /**
+     * Sets the system to be displayed in the editor
+     */
+    private void setSystem(System system)
+    {
+        getSystemSiteSelectionEditor().clear();
+        getSystemTalkgroupSelectionEditor().clear();
+
+        if(system != null)
+        {
+            mLog.debug("System: " + (system != null ? system.getName() : ""));
+            mLog.debug("Type:" + system.getTypeId() + " Flavor:" + system.getFlavorId() + " Voice:" + system.getVoiceId());
+            mUserPreferences.getRadioReferencePreference().setPreferredSystemId(system.getSystemId(), mLevel);
+
+            ThreadPool.SCHEDULED.execute(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    try
+                    {
+                        if(mTagMap == null)
+                        {
+                            mTagMap = mRadioReference.getService().getTagsMap();
+                        }
+
+                        SystemInformation systemInformation = mRadioReference.getService().getSystemInformation(system.getSystemId());
+                        Type type = mRadioReference.getService().getType(systemInformation.getTypeId());
+                        Flavor flavor = mRadioReference.getService().getFlavor(systemInformation.getFlavorId());
+                        Voice voice = mRadioReference.getService().getVoice(systemInformation.getVoiceId());
+                        List<Site> sites = mRadioReference.getService().getSites(system.getSystemId());
+
+                        //The service api doesn't provide the county name, so we run a separate query and update the value
+                        for(Site site: sites)
+                        {
+                            CountyInfo countyInfo = mRadioReference.getService().getCountyInfo(site.getCountyId());
+                            site.setCountyName(countyInfo.getName());
+                        }
+
+                        Platform.runLater(() -> getSystemSiteSelectionEditor().setSystem(system, systemInformation, type, flavor, voice, sites));
+
+                        List<Talkgroup> talkgroups = mRadioReference.getService().getTalkgroups(system.getSystemId());
+                        List<TalkgroupCategory> categories = mRadioReference.getService().getTalkgroupCategories(system.getSystemId());
+                        Platform.runLater(() -> getSystemTalkgroupSelectionEditor()
+                            .setSystem(system, talkgroups, categories, getTagMap()));
+                    }
+                    catch(RadioReferenceException rre)
+                    {
+                        mLog.error("Error retrieving system information - " + rre.getMessage());
+                    }
+                }
+            });
+        }
+    }
+
+    private Map<Integer,Tag> getTagMap()
+    {
+        return mTagMap;
+    }
+
 //    private void setCountry(final Country country)
 //    {
 //        getStateListView().getItems().clear();
@@ -460,66 +625,65 @@ public class SystemEditor extends VBox
 //            setText((empty || item == null) ? null : item.getName());
 //        }
 //    }
-//
-//    public class SystemListCell extends ListCell<System>
-//    {
-//        private HBox mHBox;
-//        private Label mName;
-//        private Label mProtocol;
-//
-//        public SystemListCell()
-//        {
-//            mHBox = new HBox();
-//            mHBox.setMaxWidth(Double.MAX_VALUE);
-//            mName = new Label();
-//            mName.setMaxWidth(Double.MAX_VALUE);
-//            mName.setAlignment(Pos.CENTER_LEFT);
-//            mProtocol = new Label();
-//            mProtocol.setMaxWidth(Double.MAX_VALUE);
-//            mProtocol.setAlignment(Pos.CENTER_RIGHT);
-//            HBox.setHgrow(mName, Priority.ALWAYS);
-//            HBox.setHgrow(mProtocol, Priority.ALWAYS);
-//            mHBox.getChildren().addAll(mName, mProtocol);
-//        }
-//
-//        @Override
-//        protected void updateItem(System item, boolean empty)
-//        {
-//            super.updateItem(item, empty);
-//
-//            setText(null);
-//
-//            if(empty || item == null)
-//            {
-//                setGraphic(null);
-//            }
-//            else
-//            {
-//                mName.setText(item.getName());
-//
-//                Type type = null;
-//
-//                try
-//                {
-//                    type = mRadioReference.getService().getType(item.getTypeId());
-//                }
-//                catch(RadioReferenceException rre)
-//                {
-//                    mLog.error("Error getting type", rre);
-//                }
-//
-//                if(type != null)
-//                {
-//                    mProtocol.setText(type.getName());
-//                }
-//                else
-//                {
-//                    mProtocol.setText("Unknown");
-//                }
-//
-//                setGraphic(mHBox);
-//            }
-//        }
-//    }
-//
+
+    public class SystemListCell extends ListCell<System>
+    {
+        private HBox mHBox;
+        private Label mName;
+        private Label mProtocol;
+
+        public SystemListCell()
+        {
+            mHBox = new HBox();
+            mHBox.setMaxWidth(Double.MAX_VALUE);
+            mName = new Label();
+            mName.setMaxWidth(Double.MAX_VALUE);
+            mName.setAlignment(Pos.CENTER_LEFT);
+            mProtocol = new Label();
+            mProtocol.setMaxWidth(Double.MAX_VALUE);
+            mProtocol.setAlignment(Pos.CENTER_RIGHT);
+            HBox.setHgrow(mName, Priority.ALWAYS);
+            HBox.setHgrow(mProtocol, Priority.ALWAYS);
+            mHBox.getChildren().addAll(mName, mProtocol);
+        }
+
+        @Override
+        protected void updateItem(System item, boolean empty)
+        {
+            super.updateItem(item, empty);
+
+            setText(null);
+
+            if(empty || item == null)
+            {
+                setGraphic(null);
+            }
+            else
+            {
+                mName.setText(item.getName());
+
+                Type type = null;
+
+                try
+                {
+                    type = mRadioReference.getService().getType(item.getTypeId());
+                }
+                catch(RadioReferenceException rre)
+                {
+                    mLog.error("Error getting type", rre);
+                }
+
+                if(type != null)
+                {
+                    mProtocol.setText(type.getName());
+                }
+                else
+                {
+                    mProtocol.setText("Unknown");
+                }
+
+                setGraphic(mHBox);
+            }
+        }
+    }
 }

@@ -295,6 +295,7 @@ public class StreamingEditor extends SplitPane
         if(mTabPane == null)
         {
             mTabPane = new TabPane();
+            mTabPane.setMaxHeight(Double.MAX_VALUE);
             mTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
             mTabPane.getTabs().addAll(getConfigurationTab(), getAliasTab());
         }

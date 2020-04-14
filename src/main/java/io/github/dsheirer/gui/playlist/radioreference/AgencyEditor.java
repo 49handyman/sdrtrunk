@@ -21,7 +21,6 @@ package io.github.dsheirer.gui.playlist.radioreference;
 
 import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
-import io.github.dsheirer.preference.radioreference.RadioReferencePreference;
 import io.github.dsheirer.rrapi.RadioReferenceException;
 import io.github.dsheirer.rrapi.type.Agency;
 import io.github.dsheirer.rrapi.type.AgencyInfo;
@@ -39,6 +38,7 @@ import javafx.scene.layout.VBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -86,23 +86,11 @@ public class AgencyEditor extends VBox
      */
     public void setAgencies(List<Agency> agencies)
     {
+        Collections.sort(agencies, (o1, o2) -> o1.getName().compareTo(o2.getName()));
         getAgencyListView().getItems().clear();
         getAgencyListView().getItems().addAll(agencies);
 
-        int preferredAgencyId = RadioReferencePreference.INVALID_ID;
-
-        switch(mLevel)
-        {
-            case NATIONAL:
-                preferredAgencyId = mUserPreferences.getRadioReferencePreference().getPreferredAgencyIdNational();
-                break;
-            case STATE:
-                preferredAgencyId = mUserPreferences.getRadioReferencePreference().getPreferredAgencyIdState();
-                break;
-            case COUNTY:
-                preferredAgencyId = mUserPreferences.getRadioReferencePreference().getPreferredAgencyIdCounty();
-                break;
-        }
+        int preferredAgencyId = mUserPreferences.getRadioReferencePreference().getPreferredAgencyId(mLevel);
 
         for(Agency agency: getAgencyListView().getItems())
         {
@@ -151,18 +139,7 @@ public class AgencyEditor extends VBox
     {
         if(agency != null)
         {
-            switch(mLevel)
-            {
-                case NATIONAL:
-                    mUserPreferences.getRadioReferencePreference().setPreferredAgencyIdNational(agency.getAgencyId());
-                    break;
-                case STATE:
-                    mUserPreferences.getRadioReferencePreference().setPreferredAgencyIdState(agency.getAgencyId());
-                    break;
-                case COUNTY:
-                    mUserPreferences.getRadioReferencePreference().setPreferredAgencyIdCounty(agency.getAgencyId());
-                    break;
-            }
+            mUserPreferences.getRadioReferencePreference().setPreferredAgencyId(agency.getAgencyId(), mLevel);
 
             ThreadPool.SCHEDULED.submit(() -> {
                 try

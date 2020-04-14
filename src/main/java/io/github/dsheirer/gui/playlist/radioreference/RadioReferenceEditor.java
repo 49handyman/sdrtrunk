@@ -80,11 +80,14 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
     private AgencyEditor mNationalAgencyEditor;
     private AgencyEditor mStateAgencyEditor;
     private AgencyEditor mCountyAgencyEditor;
-    private SystemEditor mSystemEditor;
+    private SystemEditor mStateSystemEditor;
+    private SystemEditor mCountySystemEditor;
     private TabPane mTabPane;
     private Tab mNationalAgencyTab;
     private Tab mStateAgencyTab;
     private Tab mCountyAgencyTab;
+    private Tab mStateSystemTab;
+    private Tab mCountySystemTab;
 
     public RadioReferenceEditor(UserPreferences userPreferences, PlaylistManager playlistManager)
     {
@@ -158,7 +161,7 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
                 }
                 catch(RadioReferenceException rre)
                 {
-                    mLog.error("Error retrieving country list from radioreference", rre);
+                    mLog.error("Error retrieving country list from radio reference", rre);
                 }
             }
         });
@@ -170,9 +173,8 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         {
             mTabPane = new TabPane();
             mTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-            Tab systemTab = new Tab("Trunked Systems");
-            systemTab.setContent(getSystemEditor());
-            mTabPane.getTabs().addAll(systemTab, getNationalAgencyTab(), getStateAgencyTab(), getCountyAgencyTab());
+            mTabPane.getTabs().addAll(getCountySystemTab(), getStateSystemTab(), getCountyAgencyTab(),
+                getStateAgencyTab(), getNationalAgencyTab());
         }
 
         return mTabPane;
@@ -247,6 +249,52 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         return mCountyAgencyTab;
     }
 
+    private Tab getStateSystemTab()
+    {
+        if(mStateSystemTab == null)
+        {
+            mStateSystemTab = new Tab("State Trunked Systems");
+            mStateSystemTab.setContent(getStateSystemEditor());
+            getStateSystemEditor().systemCountProperty().addListener((observable, oldValue, newValue) -> {
+                int count = (newValue != null ? newValue.intValue() : 0);
+
+                if(count > 0)
+                {
+                    getStateSystemTab().setText("State Trunked Systems (" + count + ")");
+                }
+                else
+                {
+                    getStateSystemTab().setText("State Trunked Systems");
+                }
+            });
+        }
+
+        return mStateSystemTab;
+    }
+
+    private Tab getCountySystemTab()
+    {
+        if(mCountySystemTab == null)
+        {
+            mCountySystemTab = new Tab("County Trunked Systems");
+            mCountySystemTab.setContent(getCountySystemEditor());
+            getCountySystemEditor().systemCountProperty().addListener((observable, oldValue, newValue) -> {
+                int count = (newValue != null ? newValue.intValue() : 0);
+
+                if(count > 0)
+                {
+                    getCountySystemTab().setText("County Trunked Systems (" + count + ")");
+                }
+                else
+                {
+                    getCountySystemTab().setText("County Trunked Systems");
+                }
+            });
+        }
+
+        return mCountySystemTab;
+    }
+
     private AgencyEditor getNationalAgencyEditor()
     {
         if(mNationalAgencyEditor == null)
@@ -277,14 +325,24 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
         return mCountyAgencyEditor;
     }
 
-    private SystemEditor getSystemEditor()
+    private SystemEditor getStateSystemEditor()
     {
-        if(mSystemEditor == null)
+        if(mStateSystemEditor == null)
         {
-            mSystemEditor = new SystemEditor(mUserPreferences, mRadioReference);
+            mStateSystemEditor = new SystemEditor(mUserPreferences, mRadioReference, mPlaylistManager, Level.STATE);
         }
 
-        return mSystemEditor;
+        return mStateSystemEditor;
+    }
+
+    private SystemEditor getCountySystemEditor()
+    {
+        if(mCountySystemEditor == null)
+        {
+            mCountySystemEditor = new SystemEditor(mUserPreferences, mRadioReference, mPlaylistManager, Level.COUNTY);
+        }
+
+        return mCountySystemEditor;
     }
 
     private VBox getTopBox()
@@ -497,6 +555,7 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
 
                     Platform.runLater(() -> {
                         getStateAgencyEditor().setAgencies(stateInfo.getAgencies());
+                        getStateSystemEditor().setSystems(stateInfo.getSystems());
                         getCountyComboBox().getItems().addAll(stateInfo.getCounties());
 
                         for(County county: mCountyComboBox.getItems())
@@ -548,6 +607,7 @@ public class RadioReferenceEditor extends BorderPane implements Consumer<Authori
                     final CountyInfo countyInfo = mRadioReference.getService().getCountyInfo(county.getCountyId());
 
                     Platform.runLater(() -> {
+                        getCountySystemEditor().setSystems(countyInfo.getSystems());
                         getCountyAgencyEditor().setAgencies(countyInfo.getAgencies());
                     });
                 }

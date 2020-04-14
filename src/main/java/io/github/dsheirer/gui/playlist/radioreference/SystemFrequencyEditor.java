@@ -64,9 +64,9 @@ import java.util.List;
 /**
  * View for a radio reference trunked mobile radio system
  */
-public class TrunkedSystemView extends GridPane
+public class SystemFrequencyEditor extends GridPane
 {
-    private static final Logger mLog = LoggerFactory.getLogger(TrunkedSystemView.class);
+    private static final Logger mLog = LoggerFactory.getLogger(SystemFrequencyEditor.class);
     private static final String ALTERNATE_CONTROL_CHANNEL = "a";
     private static final String PRIMARY_CONTROL_CHANNEL = "d";
 
@@ -86,7 +86,7 @@ public class TrunkedSystemView extends GridPane
      * Constructs an instance
      * @param radioReference service
      */
-    public TrunkedSystemView(RadioReference radioReference)
+    public SystemFrequencyEditor(RadioReference radioReference)
     {
         mRadioReference = radioReference;
 

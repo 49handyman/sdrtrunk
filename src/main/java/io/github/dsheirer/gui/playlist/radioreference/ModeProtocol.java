@@ -19,7 +19,7 @@
 
 package io.github.dsheirer.gui.playlist.radioreference;
 
-import io.github.dsheirer.module.decode.DecoderType;
+import io.github.dsheirer.protocol.Protocol;
 import io.github.dsheirer.rrapi.type.Mode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,45 +27,43 @@ import org.slf4j.LoggerFactory;
 /**
  * Enumeration of radio reference modes to corresponding sdrtrunk decoder type
  */
-public enum ModeDecoder
+public enum ModeProtocol
 {
-    AM("am", DecoderType.AM),
-    APCO25("p25", DecoderType.P25_PHASE1),
+    APCO25("p25", Protocol.APCO25),
     DMR("dmr", null),
     DSTAR("d-star", null),
-    FM("fm", DecoderType.NBFM),
-    FMN("fmn", DecoderType.NBFM),
+    LTR("ltr", Protocol.LTR),
+    LTR_NET("ltr-net", Protocol.LTR),
+    MPT1327("mpt", Protocol.MPT1327),
     NXDN("nxdn", null),
-    TELM("telm", null),
-    USB("usb", null),
-    LSB("lsb", null),
+    PASSPORT("passport", Protocol.PASSPORT),
     YAESU_SYSTEM_FUSION("ysf", null),
     UNKNOWN("UNKNOWN", null);
 
     private String mValue;
-    private DecoderType mDecoderType;
+    private Protocol mProtocol;
 
-    ModeDecoder(String value, DecoderType decoderType)
+    ModeProtocol(String value, Protocol protocol)
     {
         mValue = value;
-        mDecoderType = decoderType;
+        mProtocol = protocol;
     }
 
-    private static final Logger mLog = LoggerFactory.getLogger(ModeDecoder.class);
+    private static final Logger mLog = LoggerFactory.getLogger(ModeProtocol.class);
 
     public String getValue()
     {
         return mValue;
     }
 
-    public DecoderType getDecoderType()
+    public Protocol getProtocol()
     {
-        return mDecoderType;
+        return mProtocol;
     }
 
-    public boolean hasDecoderType()
+    public boolean hasProtocol()
     {
-        return mDecoderType != null;
+        return mProtocol != null;
     }
 
     /**
@@ -73,11 +71,11 @@ public enum ModeDecoder
      * @param mode to match
      * @return matching entry or UNKNOWN
      */
-    public static ModeDecoder get(Mode mode)
+    public static ModeProtocol get(Mode mode)
     {
         if(mode != null)
         {
-            for(ModeDecoder modeDecoder: ModeDecoder.values())
+            for(ModeProtocol modeDecoder: ModeProtocol.values())
             {
                 if(modeDecoder.getValue().contentEquals(mode.getName().toLowerCase()))
                 {

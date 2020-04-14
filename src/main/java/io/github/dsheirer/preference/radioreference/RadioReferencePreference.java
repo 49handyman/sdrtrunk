@@ -48,7 +48,8 @@ public class RadioReferencePreference extends Preference
     private static final String PREFERRED_COUNTRY_ID = "preferred.country";
     private static final String PREFERRED_STATE_ID = "preferred.state";
     private static final String PREFERRED_COUNTY_ID = "preferred.county";
-    private static final String PREFERRED_SYSTEM_ID = "preferred.system";
+    private static final String PREFERRED_SYSTEM_ID_STATE = "preferred.system.state";
+    private static final String PREFERRED_SYSTEM_ID_COUNTY = "preferred.system.county";
     private static final String PREFERRED_AGENCY_ID_NATIONAL = "preferred.agency.national";
     private static final String PREFERRED_AGENCY_ID_STATE = "preferred.agency.state";
     private static final String PREFERRED_AGENCY_ID_COUNTY = "preferred.agency.county";
@@ -69,7 +70,8 @@ public class RadioReferencePreference extends Preference
     private int mPreferredAgencyIdNational = INVALID_ID;
     private int mPreferredAgencyIdState = INVALID_ID;
     private int mPreferredAgencyIdCounty = INVALID_ID;
-    private int mPreferredSystemId = INVALID_ID;
+    private int mPreferredSystemIdState = INVALID_ID;
+    private int mPreferredSystemIdCounty = INVALID_ID;
 
     /**
      * Constructs an instance.
@@ -309,81 +311,99 @@ public class RadioReferencePreference extends Preference
     /**
      * Preferred system to use with the service
      */
-    public int getPreferredSystemId()
+    public int getPreferredSystemId(Level level)
     {
-        if(mPreferredSystemId < 0)
+        switch(level)
         {
-            mPreferredSystemId = mPreferences.getInt(PREFERRED_COUNTY_ID, INVALID_ID);
-        }
+            case STATE:
+                if(mPreferredSystemIdState < 0)
+                {
+                    mPreferredSystemIdState = mPreferences.getInt(PREFERRED_SYSTEM_ID_STATE, INVALID_ID);
+                }
 
-        return mPreferredSystemId;
+                return mPreferredSystemIdState;
+            case COUNTY:
+            default:
+                if(mPreferredSystemIdCounty < 0)
+                {
+                    mPreferredSystemIdCounty = mPreferences.getInt(PREFERRED_SYSTEM_ID_COUNTY, INVALID_ID);
+                }
+
+                return mPreferredSystemIdCounty;
+        }
     }
 
-    public void setPreferredSystemId(int systemId)
+    public void setPreferredSystemId(int systemId, Level level)
     {
-        mPreferredSystemId = systemId;
-        mPreferences.putInt(PREFERRED_SYSTEM_ID, mPreferredSystemId);
-        notifyPreferenceUpdated();
+        switch(level)
+        {
+            case STATE:
+                mPreferredSystemIdState = systemId;
+                mPreferences.putInt(PREFERRED_SYSTEM_ID_STATE, mPreferredSystemIdState);
+                notifyPreferenceUpdated();
+                break;
+            case COUNTY:
+            default:
+                mPreferredSystemIdCounty = systemId;
+                mPreferences.putInt(PREFERRED_SYSTEM_ID_COUNTY, mPreferredSystemIdCounty);
+                notifyPreferenceUpdated();
+                break;
+        }
     }
 
     /**
      * Preferred country agency to use with the service
      */
-    public int getPreferredAgencyIdNational()
+    public int getPreferredAgencyId(Level level)
     {
-        if(mPreferredAgencyIdNational < 0)
+        switch(level)
         {
-            mPreferredAgencyIdNational = mPreferences.getInt(PREFERRED_AGENCY_ID_NATIONAL, INVALID_ID);
+            case NATIONAL:
+                if(mPreferredAgencyIdNational < 0)
+                {
+                    mPreferredAgencyIdNational = mPreferences.getInt(PREFERRED_AGENCY_ID_NATIONAL, INVALID_ID);
+                }
+
+                return mPreferredAgencyIdNational;
+            case STATE:
+                if(mPreferredAgencyIdState < 0)
+                {
+                    mPreferredAgencyIdState = mPreferences.getInt(PREFERRED_AGENCY_ID_STATE, INVALID_ID);
+                }
+
+                return mPreferredAgencyIdState;
+            case COUNTY:
+            default:
+                if(mPreferredAgencyIdCounty < 0)
+                {
+                    mPreferredAgencyIdCounty = mPreferences.getInt(PREFERRED_AGENCY_ID_COUNTY, INVALID_ID);
+                }
+
+                return mPreferredAgencyIdCounty;
         }
-
-        return mPreferredAgencyIdNational;
     }
 
-    public void setPreferredAgencyIdNational(int agencyId)
+    public void setPreferredAgencyId(int agencyId, Level level)
     {
-        mPreferredAgencyIdNational = agencyId;
-        mPreferences.putInt(PREFERRED_AGENCY_ID_NATIONAL, mPreferredAgencyIdNational);
-        notifyPreferenceUpdated();
-    }
-
-    /**
-     * Preferred state agency to use with the service
-     */
-    public int getPreferredAgencyIdState()
-    {
-        if(mPreferredAgencyIdState < 0)
+        switch(level)
         {
-            mPreferredAgencyIdState = mPreferences.getInt(PREFERRED_AGENCY_ID_STATE, INVALID_ID);
+            case NATIONAL:
+                mPreferredAgencyIdNational = agencyId;
+                mPreferences.putInt(PREFERRED_AGENCY_ID_NATIONAL, mPreferredAgencyIdNational);
+                notifyPreferenceUpdated();
+                break;
+            case STATE:
+                mPreferredAgencyIdState = agencyId;
+                mPreferences.putInt(PREFERRED_AGENCY_ID_STATE, mPreferredAgencyIdState);
+                notifyPreferenceUpdated();
+                break;
+            case COUNTY:
+            default:
+                mPreferredAgencyIdCounty = agencyId;
+                mPreferences.putInt(PREFERRED_AGENCY_ID_COUNTY, mPreferredAgencyIdCounty);
+                notifyPreferenceUpdated();
+                break;
         }
-
-        return mPreferredAgencyIdState;
-    }
-
-    public void setPreferredAgencyIdState(int agencyId)
-    {
-        mPreferredAgencyIdState = agencyId;
-        mPreferences.putInt(PREFERRED_AGENCY_ID_STATE, mPreferredAgencyIdState);
-        notifyPreferenceUpdated();
-    }
-
-    /**
-     * Preferred county agency to use with the service
-     */
-    public int getPreferredAgencyIdCounty()
-    {
-        if(mPreferredAgencyIdCounty < 0)
-        {
-            mPreferredAgencyIdCounty = mPreferences.getInt(PREFERRED_AGENCY_ID_COUNTY, INVALID_ID);
-        }
-
-        return mPreferredAgencyIdCounty;
-    }
-
-    public void setPreferredAgencyIdCounty(int agencyId)
-    {
-        mPreferredAgencyIdCounty = agencyId;
-        mPreferences.putInt(PREFERRED_AGENCY_ID_COUNTY, mPreferredAgencyIdCounty);
-        notifyPreferenceUpdated();
     }
 
     /**

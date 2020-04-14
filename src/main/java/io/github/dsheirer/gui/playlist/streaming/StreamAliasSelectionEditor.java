@@ -90,19 +90,24 @@ public class StreamAliasSelectionEditor extends VBox
         buttonBox.getChildren().addAll(getAddAllButton(), getAddButton(), getRemoveButton(), getRemoveAllButton());
 
         VBox availableBox = new VBox();
+        availableBox.setMaxHeight(Double.MAX_VALUE);
         VBox.setVgrow(getAvailableAliasTableView(), Priority.ALWAYS);
         availableBox.getChildren().addAll(new Label("Available"), getAvailableAliasTableView());
 
         VBox selectedBox = new VBox();
+        selectedBox.setMaxHeight(Double.MAX_VALUE);
         VBox.setVgrow(getSelectedAliasTableView(), Priority.ALWAYS);
         selectedBox.getChildren().addAll(new Label("Selected"), getSelectedAliasTableView());
 
         HBox listsBox = new HBox();
+        listsBox.setMaxHeight(Double.MAX_VALUE);
         listsBox.setPadding(new Insets(5,10,10,10));
         listsBox.setSpacing(10);
         HBox.setHgrow(availableBox, Priority.ALWAYS);
         HBox.setHgrow(selectedBox, Priority.ALWAYS);
         listsBox.getChildren().addAll(availableBox, buttonBox, selectedBox);
+
+        VBox.setVgrow(listsBox, Priority.ALWAYS);
 
         getChildren().addAll(getSearchBox(), listsBox);
     }
@@ -208,6 +213,7 @@ public class StreamAliasSelectionEditor extends VBox
         if(mAvailableAliasTableView == null)
         {
             mAvailableAliasTableView = new TableView<>();
+            mAvailableAliasTableView.setMaxHeight(Double.MAX_VALUE);
             mAvailableAliasTableView.setDisable(true);
             mAvailableAliasTableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
@@ -251,6 +257,7 @@ public class StreamAliasSelectionEditor extends VBox
         if(mSelectedAliasTableView == null)
         {
             mSelectedAliasTableView = new TableView<>();
+            mSelectedAliasTableView.setMaxHeight(Double.MAX_VALUE);
             mSelectedAliasTableView.setDisable(true);
             mSelectedAliasTableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 

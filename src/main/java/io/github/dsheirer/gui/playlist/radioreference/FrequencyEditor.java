@@ -74,7 +74,7 @@ public class FrequencyEditor extends VBox
     private Button mCreateButton;
     private Label mChannelCreatedLabel;
     private CheckBox mShowCreatedChannelCheckBox;
-    private ModeDecoder mModeDecoder;
+    private ModeDecoderType mModeDecoderType;
     private long mFrequency;
 
     public FrequencyEditor(UserPreferences userPreferences, RadioReference radioReference,
@@ -191,7 +191,7 @@ public class FrequencyEditor extends VBox
 
     public void setItem(Frequency item, Category category, SubCategory subCategory)
     {
-        mModeDecoder = ModeDecoder.UNKNOWN;
+        mModeDecoderType = ModeDecoderType.UNKNOWN;
 
         if(item != null)
         {
@@ -247,12 +247,12 @@ public class FrequencyEditor extends VBox
                     try
                     {
                         Mode mode = mRadioReference.getService().getMode(parsed);
-                        mModeDecoder = ModeDecoder.get(mode);
+                        mModeDecoderType = ModeDecoderType.get(mode);
 
                         Platform.runLater(() -> {
                             getModeTextField().setText(mode.getName());
 
-                            boolean disable = !mModeDecoder.hasDecoderType();
+                            boolean disable = !mModeDecoderType.hasDecoderType();
 
                             getSystemTextField().setDisable(disable);
                             getSiteTextField().setDisable(disable);
@@ -260,9 +260,9 @@ public class FrequencyEditor extends VBox
                             getCreateButton().setDisable(disable);
                             getShowCreatedChannelCheckBox().setDisable(disable);
 
-                            if(mModeDecoder.hasDecoderType())
+                            if(mModeDecoderType.hasDecoderType())
                             {
-                                getDecoderTextField().setText(mModeDecoder.getDecoderType().getDisplayString());
+                                getDecoderTextField().setText(mModeDecoderType.getDecoderType().getDisplayString());
                             }
                             else
                             {
@@ -366,7 +366,7 @@ public class FrequencyEditor extends VBox
             mCreateButton = new Button("Create");
             mCreateButton.setDisable(true);
             mCreateButton.setOnAction(event -> {
-                Channel channel = createChannel(mModeDecoder, mFrequency, getSystemTextField().getText(),
+                Channel channel = createChannel(mModeDecoderType, mFrequency, getSystemTextField().getText(),
                     getSiteTextField().getText(), getNameTextField().getText());
 
                 if(channel != null)
@@ -395,16 +395,16 @@ public class FrequencyEditor extends VBox
 
     /**
      * Creates a channel configuration from the supplied values
-     * @param modeDecoder indicating the decoder type
+     * @param modeDecoderType indicating the decoder type
      * @param frequency value
      * @param system value
      * @param site value
      * @param name value
      * @return configured channel or null
      */
-    private Channel createChannel(ModeDecoder modeDecoder, long frequency, String system, String site, String name)
+    private Channel createChannel(ModeDecoderType modeDecoderType, long frequency, String system, String site, String name)
     {
-        if(modeDecoder.hasDecoderType())
+        if(modeDecoderType.hasDecoderType())
         {
             Channel channel = new Channel();
             channel.setSystem(system);
@@ -413,9 +413,9 @@ public class FrequencyEditor extends VBox
             SourceConfigTuner sourceConfigTuner = new SourceConfigTuner();
             sourceConfigTuner.setFrequency(frequency);
             channel.setSourceConfiguration(sourceConfigTuner);
-            DecodeConfiguration decodeConfiguration = DecoderFactory.getDecodeConfiguration(modeDecoder.getDecoderType());
+            DecodeConfiguration decodeConfiguration = DecoderFactory.getDecodeConfiguration(modeDecoderType.getDecoderType());
 
-            if(decodeConfiguration instanceof DecodeConfigNBFM && modeDecoder == ModeDecoder.FM)
+            if(decodeConfiguration instanceof DecodeConfigNBFM && modeDecoderType == ModeDecoderType.FM)
             {
                 ((DecodeConfigNBFM)decodeConfiguration).setBandwidth(DecodeConfigNBFM.Bandwidth.BW_25_0);
             }
@@ -428,7 +428,7 @@ public class FrequencyEditor extends VBox
         }
         else
         {
-            mLog.warn("Can't create channel configuration for [" + modeDecoder.name() + "] no supported decoder type");
+            mLog.warn("Can't create channel configuration for [" + modeDecoderType.name() + "] no supported decoder type");
         }
 
         return null;

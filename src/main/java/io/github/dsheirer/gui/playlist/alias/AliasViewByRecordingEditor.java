@@ -81,12 +81,12 @@ public class AliasViewByRecordingEditor extends VBox
         VBox availableBox = new VBox();
         availableBox.setMaxHeight(Double.MAX_VALUE);
         VBox.setVgrow(getNoRecordAliasTableView(), Priority.ALWAYS);
-        availableBox.getChildren().addAll(new Label("No Record"), getNoRecordAliasTableView());
+        availableBox.getChildren().addAll(new Label("Don't Record Audio"), getNoRecordAliasTableView());
 
         VBox selectedBox = new VBox();
         selectedBox.setMaxHeight(Double.MAX_VALUE);
         VBox.setVgrow(getRecordAliasTableView(), Priority.ALWAYS);
-        selectedBox.getChildren().addAll(new Label("Record"), getRecordAliasTableView());
+        selectedBox.getChildren().addAll(new Label("Record Audio"), getRecordAliasTableView());
 
         HBox listsBox = new HBox();
         listsBox.setMaxHeight(Double.MAX_VALUE);
