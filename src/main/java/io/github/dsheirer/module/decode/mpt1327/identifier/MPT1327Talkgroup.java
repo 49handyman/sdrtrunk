@@ -35,6 +35,9 @@ import io.github.dsheirer.protocol.Protocol;
  */
 public class MPT1327Talkgroup extends TalkgroupIdentifier
 {
+    public static final int PREFIX_MASK = 0xFE000;
+    public static final int IDENT_MASK = 0x1FFF;
+
     public MPT1327Talkgroup(Integer value, Role role)
     {
         super(value, role);
@@ -92,5 +95,20 @@ public class MPT1327Talkgroup extends TalkgroupIdentifier
             //Mask the prefix for ident values of 0, 8101-8192
             return new MPT1327Talkgroup(ident, Role.TO);
         }
+    }
+
+    public static MPT1327Talkgroup createTo(int value)
+    {
+        return createTo(getPrefix(value), getIdent(value));
+    }
+
+    public static int getPrefix(int value)
+    {
+        return (value & PREFIX_MASK) >> 13;
+    }
+
+    public static int getIdent(int value)
+    {
+        return value & IDENT_MASK;
     }
 }

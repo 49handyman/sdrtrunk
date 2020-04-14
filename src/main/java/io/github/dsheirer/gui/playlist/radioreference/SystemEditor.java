@@ -74,7 +74,7 @@ public class SystemEditor extends VBox
     private Tab mTalkgroupTab;
     private SystemSiteSelectionEditor mSystemSiteSelectionEditor;
     private SystemTalkgroupSelectionEditor mSystemTalkgroupSelectionEditor;
-    private Map<Integer,Tag> mTagMap;
+    private RadioReferenceDecoder mRadioReferenceDecoder;
 
     /**
      * Constructs an instance
@@ -236,9 +236,14 @@ public class SystemEditor extends VBox
                 {
                     try
                     {
-                        if(mTagMap == null)
+                        if(mRadioReferenceDecoder == null)
                         {
-                            mTagMap = mRadioReference.getService().getTagsMap();
+                            Map<Integer,Type> typeMap = mRadioReference.getService().getTypesMap();
+                            Map<Integer,Flavor> flavorMap = mRadioReference.getService().getFlavorsMap();
+                            Map<Integer,Voice> voiceMap = mRadioReference.getService().getVoicesMap();
+                            Map<Integer,Tag> tagMap = mRadioReference.getService().getTagsMap();
+                            mRadioReferenceDecoder = new RadioReferenceDecoder(mUserPreferences, typeMap, flavorMap,
+                                voiceMap, tagMap);
                         }
 
                         SystemInformation systemInformation = mRadioReference.getService().getSystemInformation(system.getSystemId());
@@ -259,7 +264,7 @@ public class SystemEditor extends VBox
                         List<Talkgroup> talkgroups = mRadioReference.getService().getTalkgroups(system.getSystemId());
                         List<TalkgroupCategory> categories = mRadioReference.getService().getTalkgroupCategories(system.getSystemId());
                         Platform.runLater(() -> getSystemTalkgroupSelectionEditor()
-                            .setSystem(system, talkgroups, categories, getTagMap()));
+                            .setSystem(system, talkgroups, categories, mRadioReferenceDecoder));
                     }
                     catch(RadioReferenceException rre)
                     {
@@ -268,11 +273,6 @@ public class SystemEditor extends VBox
                 }
             });
         }
-    }
-
-    private Map<Integer,Tag> getTagMap()
-    {
-        return mTagMap;
     }
 
 //    private void setCountry(final Country country)

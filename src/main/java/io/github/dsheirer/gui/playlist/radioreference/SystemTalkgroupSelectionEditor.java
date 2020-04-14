@@ -23,7 +23,6 @@ import io.github.dsheirer.alias.AliasModel;
 import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
 import io.github.dsheirer.rrapi.type.System;
-import io.github.dsheirer.rrapi.type.Tag;
 import io.github.dsheirer.rrapi.type.Talkgroup;
 import io.github.dsheirer.rrapi.type.TalkgroupCategory;
 import javafx.collections.FXCollections;
@@ -54,7 +53,6 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
@@ -75,7 +73,7 @@ public class SystemTalkgroupSelectionEditor extends GridPane
     private FilteredList<Talkgroup> mTalkgroupFilteredList;
     private ObservableList<Talkgroup> mTalkgroupList = FXCollections.observableArrayList();
     private System mCurrentSystem;
-    private Map<Integer,Tag> mTagMap;
+    private RadioReferenceDecoder mRadioReferenceDecoder;
 
     public SystemTalkgroupSelectionEditor(UserPreferences userPreferences, PlaylistManager playlistManager)
     {
@@ -161,10 +159,11 @@ public class SystemTalkgroupSelectionEditor extends GridPane
         mTalkgroupFilteredList.setPredicate(mTalkgroupFilter);
     }
 
-    public void setSystem(System system, List<Talkgroup> talkgroups, List<TalkgroupCategory> categories, Map<Integer,Tag> tagMap)
+    public void setSystem(System system, List<Talkgroup> talkgroups, List<TalkgroupCategory> categories,
+                          RadioReferenceDecoder decoder)
     {
         mCurrentSystem = system;
-        mTagMap = tagMap;
+        mRadioReferenceDecoder = decoder;
 
         clear();
 
@@ -188,9 +187,9 @@ public class SystemTalkgroupSelectionEditor extends GridPane
         return mCurrentSystem;
     }
 
-    private Map<Integer,Tag> getTagMap()
+    private RadioReferenceDecoder getRadioReferenceDecoder()
     {
-        return mTagMap;
+        return mRadioReferenceDecoder;
     }
 
     private TalkgroupEditor getTalkgroupEditor()
@@ -298,7 +297,8 @@ public class SystemTalkgroupSelectionEditor extends GridPane
 
             mTalkgroupTableView.getColumns().addAll(talkgroupColumn, descriptionColumn, aliasColumn);
             mTalkgroupTableView.getSelectionModel().selectedItemProperty()
-                .addListener((observable, oldValue, selected) -> getTalkgroupEditor().setTalkgroup(selected));
+                .addListener((observable, oldValue, selected) -> getTalkgroupEditor().setTalkgroup(selected,
+                    getCurrentSystem(), getRadioReferenceDecoder()));
 
             mTalkgroupFilteredList = new FilteredList<>(mTalkgroupList);
             SortedList<Talkgroup> sortedList = new SortedList<>(mTalkgroupFilteredList);

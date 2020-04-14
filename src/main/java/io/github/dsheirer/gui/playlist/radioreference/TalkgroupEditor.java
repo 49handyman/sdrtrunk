@@ -21,6 +21,7 @@ package io.github.dsheirer.gui.playlist.radioreference;
 
 import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
+import io.github.dsheirer.rrapi.type.System;
 import io.github.dsheirer.rrapi.type.Talkgroup;
 import javafx.geometry.HPos;
 import javafx.scene.control.Label;
@@ -102,11 +103,11 @@ public class TalkgroupEditor extends GridPane
         getChildren().add(getEncryptionTextField());
     }
 
-    public void setTalkgroup(Talkgroup talkgroup)
+    public void setTalkgroup(Talkgroup talkgroup, System system, RadioReferenceDecoder decoder)
     {
         if(talkgroup != null)
         {
-            getTalkgroupTextField().setText(String.valueOf(talkgroup.getDecimalValue()));
+            getTalkgroupTextField().setText(decoder.format(talkgroup, system));
             getAlphaTagTextField().setText(talkgroup.getAlphaTag());
             getDescriptionTextField().setText(talkgroup.getDescription());
 
