@@ -674,6 +674,6 @@ public class Alias
     {
         return (Alias a) -> new Observable[] {a.recordableProperty(), a.streamableProperty(), a.colorProperty(),
             a.aliasListNameProperty(), a.groupProperty(), a.iconNameProperty(), a.nameProperty(), a.aliasIds(),
-            a.aliasActions()};
+            a.aliasActions(), a.nonAudioIdentifierCountProperty()};
     }
 }

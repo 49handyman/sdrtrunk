@@ -207,6 +207,7 @@ public class ChannelEditor extends SplitPane
         channel.setDecodeConfiguration(DecoderFactory.getDecodeConfiguration(decoderType));
         mPlaylistManager.getChannelModel().addChannel(channel);
         getChannelTableView().getSelectionModel().select(channel);
+        getChannelTableView().scrollTo(channel);
     }
 
     /**

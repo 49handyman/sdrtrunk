@@ -19,16 +19,27 @@
 
 package io.github.dsheirer.gui.playlist.radioreference;
 
+import io.github.dsheirer.alias.Alias;
+import io.github.dsheirer.alias.AliasList;
 import io.github.dsheirer.alias.AliasModel;
+import io.github.dsheirer.alias.id.AliasID;
+import io.github.dsheirer.alias.id.talkgroup.TalkgroupRange;
+import io.github.dsheirer.gui.control.MaxLengthUnaryOperator;
+import io.github.dsheirer.identifier.talkgroup.TalkgroupIdentifier;
 import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
 import io.github.dsheirer.rrapi.type.System;
 import io.github.dsheirer.rrapi.type.Talkgroup;
 import io.github.dsheirer.rrapi.type.TalkgroupCategory;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -39,6 +50,7 @@ import javafx.scene.control.ListCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextFormatter;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.ColumnConstraints;
@@ -56,24 +68,27 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-public class SystemTalkgroupSelectionEditor extends GridPane
+public class SystemTalkgroupSelectionEditor extends GridPane implements ITalkgroupAliasCreator
 {
     private static final Logger mLog = LoggerFactory.getLogger(SystemTalkgroupSelectionEditor.class);
 
     private final TalkgroupCategory ALL_TALKGROUPS = new TalkgroupCategory();
     private UserPreferences mUserPreferences;
     private PlaylistManager mPlaylistManager;
-    private TableView<Talkgroup> mTalkgroupTableView;
+    private TableView<AliasedTalkgroup> mTalkgroupTableView;
     private ComboBox<TalkgroupCategory> mTalkgroupCategoryComboBox;
     private TextField mSearchField;
     private TalkgroupEditor mTalkgroupEditor;
     private ComboBox<String> mAliasListNameComboBox;
     private Button mNewAliasListButton;
     private TalkgroupFilter mTalkgroupFilter = new TalkgroupFilter();
-    private FilteredList<Talkgroup> mTalkgroupFilteredList;
-    private ObservableList<Talkgroup> mTalkgroupList = FXCollections.observableArrayList();
+    private FilteredList<AliasedTalkgroup> mTalkgroupFilteredList;
+    private ObservableList<AliasedTalkgroup> mTalkgroupList = FXCollections.observableArrayList();
     private System mCurrentSystem;
     private RadioReferenceDecoder mRadioReferenceDecoder;
+    private AliasList mAliasList;
+    private AliasListChangeListener mAliasListChangeListener = new AliasListChangeListener();
+    private Button mImportAllTalkgroupsButton;
 
     public SystemTalkgroupSelectionEditor(UserPreferences userPreferences, PlaylistManager playlistManager)
     {
@@ -91,24 +106,32 @@ public class SystemTalkgroupSelectionEditor extends GridPane
 
         ColumnConstraints column1 = new ColumnConstraints();
         ColumnConstraints column2 = new ColumnConstraints();
-        column2.setPercentWidth(50);
+        column2.setPercentWidth(40);
         getColumnConstraints().addAll(column1, column2);
 
         HBox searchBox = new HBox();
         searchBox.setSpacing(5);
-        searchBox.setAlignment(Pos.CENTER_RIGHT);
+        searchBox.setAlignment(Pos.CENTER_LEFT);
         searchBox.getChildren().addAll(new Label("Search"), getSearchField());
-        GridPane.setHgrow(searchBox, Priority.ALWAYS);
-        GridPane.setConstraints(searchBox, 0, row);
-        getChildren().add(searchBox);
 
-        Label directions = new Label("Import Talkgroups To:");
-        GridPane.setHalignment(directions, HPos.CENTER);
-        GridPane.setConstraints(directions, 1, row);
-        getChildren().add(directions);
+        HBox listBox = new HBox();
+        listBox.setSpacing(5);
+        listBox.setAlignment(Pos.CENTER_RIGHT);
+        Label importLabel = new Label("Import Talkgroups To Alias List:");
+        listBox.getChildren().addAll(importLabel, getAliasListNameComboBox());
+
+        HBox combinedBox = new HBox();
+        HBox.setHgrow(searchBox, Priority.ALWAYS);
+        HBox.setHgrow(listBox, Priority.ALWAYS);
+        combinedBox.setSpacing(10);
+        combinedBox.setMaxWidth(Double.MAX_VALUE);
+        combinedBox.getChildren().addAll(searchBox, listBox, getNewAliasListButton());
+        GridPane.setHgrow(combinedBox, Priority.ALWAYS);
+        GridPane.setConstraints(combinedBox, 0, row, 2, 1);
+        getChildren().add(combinedBox);
 
         HBox categoryBox = new HBox();
-        categoryBox.setAlignment(Pos.CENTER);
+        categoryBox.setAlignment(Pos.CENTER_LEFT);
         categoryBox.setSpacing(5);
         HBox.setHgrow(getTalkgroupCategoryComboBox(), Priority.ALWAYS);
         categoryBox.getChildren().addAll(new Label("Category"), getTalkgroupCategoryComboBox());
@@ -116,13 +139,9 @@ public class SystemTalkgroupSelectionEditor extends GridPane
         GridPane.setConstraints(categoryBox, 0, ++row);
         getChildren().add(categoryBox);
 
-        HBox aliasListBox = new HBox();
-        aliasListBox.setSpacing(5);
-        aliasListBox.setAlignment(Pos.CENTER);
-        aliasListBox.getChildren().addAll(new Label("Alias List"), getAliasListNameComboBox(), getNewAliasListButton());
-        GridPane.setHgrow(aliasListBox, Priority.ALWAYS);
-        GridPane.setConstraints(aliasListBox, 1, row);
-        getChildren().add(aliasListBox);
+        GridPane.setHalignment(getImportAllTalkgroupsButton(), HPos.CENTER);
+        GridPane.setConstraints(getImportAllTalkgroupsButton(), 1, row);
+        getChildren().add(getImportAllTalkgroupsButton());
 
         GridPane.setHgrow(getTalkgroupTableView(), Priority.ALWAYS);
         GridPane.setVgrow(getTalkgroupTableView(), Priority.ALWAYS);
@@ -170,7 +189,11 @@ public class SystemTalkgroupSelectionEditor extends GridPane
         if(talkgroups != null && !talkgroups.isEmpty())
         {
             Collections.sort(talkgroups, Comparator.comparingInt(Talkgroup::getDecimalValue));
-            mTalkgroupList.addAll(talkgroups);
+
+            for(Talkgroup talkgroup: talkgroups)
+            {
+                mTalkgroupList.add(new AliasedTalkgroup(talkgroup, getAlias(talkgroup)));
+            }
 
             if(categories.size() > 0)
             {
@@ -182,9 +205,95 @@ public class SystemTalkgroupSelectionEditor extends GridPane
         }
     }
 
+    private Button getImportAllTalkgroupsButton()
+    {
+        if(mImportAllTalkgroupsButton == null)
+        {
+            mImportAllTalkgroupsButton = new Button("Import All Talkgroups");
+            mImportAllTalkgroupsButton.setOnAction(new EventHandler<ActionEvent>()
+            {
+                @Override
+                public void handle(ActionEvent event)
+                {
+                    for(AliasedTalkgroup aliasedTalkgroup : mTalkgroupFilteredList)
+                    {
+                        if(!aliasedTalkgroup.hasAlias())
+                        {
+                            createAlias(aliasedTalkgroup.getTalkgroup());
+                        }
+                    }
+                }
+            });
+        }
+
+        return mImportAllTalkgroupsButton;
+    }
+
+    /**
+     * Creates an alias for the specified talkgroup and adds it to the currently selected alias list
+     * @param talkgroup to alias
+     */
+    public void createAlias(Talkgroup talkgroup)
+    {
+        TalkgroupCategory talkgroupCategory = getTalkgroupCategory(talkgroup);
+        String group = (talkgroupCategory != null ? talkgroupCategory.getName() : null);
+        Alias alias = getRadioReferenceDecoder().createAlias(talkgroup, getCurrentSystem(),
+            getAliasListNameComboBox().getSelectionModel().getSelectedItem(), group);
+        mPlaylistManager.getAliasModel().addAlias(alias);
+    }
+
+    /**
+     * Retrieves the talkgroup category that matches the specified id from the current set in the talkgroup category
+     * combo box.
+     * @param talkgroup to match
+     * @return matching category or null
+     */
+    private TalkgroupCategory getTalkgroupCategory(Talkgroup talkgroup)
+    {
+        if(talkgroup != null)
+        {
+            for(TalkgroupCategory category: getTalkgroupCategoryComboBox().getItems())
+            {
+                if(category.getTalkgroupCategoryId() == talkgroup.getTalkgroupCategoryId())
+                {
+                    return category;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private System getCurrentSystem()
     {
         return mCurrentSystem;
+    }
+
+    private AliasList getAliasList()
+    {
+        if(mAliasList == null)
+        {
+            mAliasList = new AliasList("empty");
+        }
+
+        return mAliasList;
+    }
+
+    /**
+     * Retrieves any alias that matches the talkgroup value from the currently selected alias list
+     * @param talkgroup
+     * @return
+     */
+    private Alias getAlias(Talkgroup talkgroup)
+    {
+        TalkgroupIdentifier talkgroupIdentifier = getRadioReferenceDecoder().getIdentifier(talkgroup, getCurrentSystem());
+        List<Alias> aliases = getAliasList().getAliases(talkgroupIdentifier);
+        if(aliases.size() > 0)
+        {
+            return aliases.get(0);
+        }
+
+        return null;
     }
 
     private RadioReferenceDecoder getRadioReferenceDecoder()
@@ -217,7 +326,12 @@ public class SystemTalkgroupSelectionEditor extends GridPane
     {
         if(mAliasListNameComboBox == null)
         {
-            mAliasListNameComboBox = new ComboBox<>(mPlaylistManager.getAliasModel().aliasListNames());
+            Predicate<String> filterPredicate = s -> !s.contentEquals(AliasModel.NO_ALIAS_LIST);
+            FilteredList<String> filteredChannelList =
+                new FilteredList<>(mPlaylistManager.getAliasModel().aliasListNames(), filterPredicate);
+            mAliasListNameComboBox = new ComboBox<>(filteredChannelList);
+            mAliasListNameComboBox.setOnAction(event -> updateAliasList(getAliasListNameComboBox()
+                .getSelectionModel().getSelectedItem()));
 
             if(mAliasListNameComboBox.getItems().size() > 1)
             {
@@ -239,6 +353,95 @@ public class SystemTalkgroupSelectionEditor extends GridPane
         return mAliasListNameComboBox;
     }
 
+    /**
+     * Updates the alias list whenever the alias list combo box changes.  Refreshes the alias for each talkgroup
+     * table entry from the new list and registers a listener to detect changes to the alias list that might occur
+     * on the alias tab, so that this table stays in sync with any alias changes.
+     */
+    private void updateAliasList(String aliasListName)
+    {
+        if(mAliasList != null)
+        {
+            mAliasList.aliases().removeListener(mAliasListChangeListener);
+        }
+
+        mAliasList = mPlaylistManager.getAliasModel().getAliasList(aliasListName);
+
+        if(mAliasList != null)
+        {
+            mAliasList.aliases().addListener(mAliasListChangeListener);
+        }
+
+        //Refresh the alias for each item in the table
+        for(AliasedTalkgroup item: mTalkgroupList)
+        {
+            item.setAlias(getAlias(item.getTalkgroup()));
+        }
+    }
+
+    /**
+     * Updates the talkgroup and alias table when there is an alias change detected.  Discovers all talkgroup and
+     * talkgroup ranges that are aliased and then updates the corresponding alias for any talkgroups that are in the table.
+     */
+    private void updateAlias(Alias alias)
+    {
+        AliasedTalkgroup currentlySelected = getTalkgroupTableView().getSelectionModel().getSelectedItem();
+
+        if(alias != null)
+        {
+            for(AliasID aliasID: alias.getAliasIdentifiers())
+            {
+                if(aliasID instanceof io.github.dsheirer.alias.id.talkgroup.Talkgroup)
+                {
+                    int value = ((io.github.dsheirer.alias.id.talkgroup.Talkgroup)aliasID).getValue();
+
+                    for(AliasedTalkgroup aliasedTalkgroup : mTalkgroupList)
+                    {
+                        if(aliasedTalkgroup.getTalkgroupValue() == value)
+                        {
+                            //Even though the new alias is triggering the change, we still use the alias that the
+                            //alias list provides.  That way if there's duplicate aliases, the user will always see the
+                            //alias that will match the talkgroup during operation.
+                            aliasedTalkgroup.setAlias(getAlias(aliasedTalkgroup.getTalkgroup()));
+
+                            //Re-select the current item to refresh the editor view.
+                            if(currentlySelected != null && currentlySelected == aliasedTalkgroup)
+                            {
+                                getTalkgroupTableView().getSelectionModel().select(null);
+                                getTalkgroupTableView().getSelectionModel().select(aliasedTalkgroup);
+                            }
+                        }
+                    }
+                }
+                else if(aliasID instanceof TalkgroupRange)
+                {
+                    TalkgroupRange range = (TalkgroupRange)aliasID;
+
+                    for(int x = range.getMinTalkgroup(); x <= range.getMaxTalkgroup(); x++)
+                    {
+                        for(AliasedTalkgroup aliasedTalkgroup : mTalkgroupList)
+                        {
+                            if(aliasedTalkgroup.getTalkgroupValue() == x)
+                            {
+                                //Even though the new alias is triggering the change, we still use the alias that the
+                                //alias list provides.  That way if there's duplicate aliases, the user will always see the
+                                //alias that will match the talkgroup during operation.
+                                aliasedTalkgroup.setAlias(getAlias(aliasedTalkgroup.getTalkgroup()));
+
+                                //Re-select the current item to refresh the editor view.
+                                if(currentlySelected != null && currentlySelected == aliasedTalkgroup)
+                                {
+                                    getTalkgroupTableView().getSelectionModel().select(null);
+                                    getTalkgroupTableView().getSelectionModel().select(aliasedTalkgroup);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private Button getNewAliasListButton()
     {
         if(mNewAliasListButton == null)
@@ -247,18 +450,21 @@ public class SystemTalkgroupSelectionEditor extends GridPane
             mNewAliasListButton.setOnAction(event -> {
                 TextInputDialog dialog = new TextInputDialog();
                 dialog.setTitle("Create New Alias List");
-                dialog.setHeaderText("New Alias List");
-                dialog.setContentText("Please enter a name?");
+                dialog.setHeaderText("Please enter an alias list name (max 25 chars).");
+                dialog.setContentText("Name:");
+                dialog.getEditor().setTextFormatter(new TextFormatter<String>(new MaxLengthUnaryOperator(25)));
                 Optional<String> result = dialog.showAndWait();
 
-                String name = result.get();
+                result.ifPresent(s -> {
+                    String name = result.get();
 
-                if(name != null && !name.isEmpty())
-                {
-                    name = name.trim();
-                    mPlaylistManager.getAliasModel().addAliasList(name);
-                    getAliasListNameComboBox().getSelectionModel().select(name);
-                }
+                    if(name != null && !name.isEmpty())
+                    {
+                        name = name.trim();
+                        mPlaylistManager.getAliasModel().addAliasList(name);
+                        getAliasListNameComboBox().getSelectionModel().select(name);
+                    }
+                });
             });
         }
 
@@ -279,29 +485,36 @@ public class SystemTalkgroupSelectionEditor extends GridPane
         return mTalkgroupCategoryComboBox;
     }
 
-    private TableView<Talkgroup> getTalkgroupTableView()
+    private TableView<AliasedTalkgroup> getTalkgroupTableView()
     {
         if(mTalkgroupTableView == null)
         {
             mTalkgroupTableView = new TableView<>();
 
-            TableColumn talkgroupColumn = new TableColumn("Talkgroup");
-            talkgroupColumn.setCellValueFactory(new PropertyValueFactory<>("decimalValue"));
+            TableColumn<AliasedTalkgroup,String> talkgroupColumn = new TableColumn("Talkgroup");
+            talkgroupColumn.setCellValueFactory(new PropertyValueFactory<>("talkgroup"));
 
-            TableColumn descriptionColumn = new TableColumn("Description");
+            TableColumn<AliasedTalkgroup,String> descriptionColumn = new TableColumn("Description");
             descriptionColumn.setPrefWidth(300);
             descriptionColumn.setCellValueFactory(new PropertyValueFactory<>("description"));
 
-            TableColumn aliasColumn = new TableColumn("Alias");
-            descriptionColumn.setPrefWidth(200);
+            TableColumn<AliasedTalkgroup,String> aliasColumn = new TableColumn("Alias");
+            aliasColumn.setPrefWidth(170);
+            aliasColumn.setCellValueFactory(new PropertyValueFactory<>("alias"));
 
             mTalkgroupTableView.getColumns().addAll(talkgroupColumn, descriptionColumn, aliasColumn);
             mTalkgroupTableView.getSelectionModel().selectedItemProperty()
-                .addListener((observable, oldValue, selected) -> getTalkgroupEditor().setTalkgroup(selected,
-                    getCurrentSystem(), getRadioReferenceDecoder()));
+                .addListener((observable, oldValue, selected) -> {
 
+                    TalkgroupCategory talkgroupCategory =
+                        getTalkgroupCategory(selected != null ? selected.getTalkgroup() : null);
+                    String aliasListName = getAliasListNameComboBox().getSelectionModel().getSelectedItem();
+                    getTalkgroupEditor().setTalkgroup((selected != null ? selected.getTalkgroup() : null),
+                        getCurrentSystem(), getRadioReferenceDecoder(), (selected != null ? selected.getAlias() : null),
+                        aliasListName, (talkgroupCategory != null ? talkgroupCategory.getName() : null));
+                });
             mTalkgroupFilteredList = new FilteredList<>(mTalkgroupList);
-            SortedList<Talkgroup> sortedList = new SortedList<>(mTalkgroupFilteredList);
+            SortedList<AliasedTalkgroup> sortedList = new SortedList<>(mTalkgroupFilteredList);
             sortedList.comparatorProperty().bind(mTalkgroupTableView.comparatorProperty());
             mTalkgroupTableView.setItems(sortedList);
         }
@@ -342,7 +555,7 @@ public class SystemTalkgroupSelectionEditor extends GridPane
         }
     }
 
-    public class TalkgroupFilter implements Predicate<Talkgroup>
+    public class TalkgroupFilter implements Predicate<AliasedTalkgroup>
     {
         private String mFilterText;
         private Integer mCategory;
@@ -362,12 +575,14 @@ public class SystemTalkgroupSelectionEditor extends GridPane
         }
 
         @Override
-        public boolean test(Talkgroup talkgroup)
+        public boolean test(AliasedTalkgroup aliasedTalkgroup)
         {
             if(mCategory == null && (mFilterText == null  || mFilterText.isEmpty()))
             {
                 return true;
             }
+
+            Talkgroup talkgroup = aliasedTalkgroup.getTalkgroup();
 
             if(mCategory != null && mFilterText != null)
             {
@@ -383,6 +598,113 @@ public class SystemTalkgroupSelectionEditor extends GridPane
             {
                 return (talkgroup.getDescription().toLowerCase().contains(mFilterText) ||
                     String.valueOf(talkgroup.getDecimalValue()).contains(mFilterText));
+            }
+        }
+    }
+
+    /**
+     * Wrapper class for talkgroups and correlated aliases
+     */
+    public class AliasedTalkgroup
+    {
+        private Talkgroup mTalkgroup;
+        private Alias mAlias;
+        private StringProperty mAliasProperty = new SimpleStringProperty();
+        private StringProperty mDescriptionProperty = new SimpleStringProperty();
+        private StringProperty mTalkgroupProperty = new SimpleStringProperty();
+
+        public AliasedTalkgroup(Talkgroup talkgroup, Alias alias)
+        {
+            mTalkgroup = talkgroup;
+            mDescriptionProperty.setValue(mTalkgroup.getDescription());
+            setAlias(alias);
+            updateTalkgroup();
+        }
+
+        public boolean hasAlias()
+        {
+            return mAlias != null;
+        }
+
+        public Alias getAlias()
+        {
+            return mAlias;
+        }
+
+        public int getTalkgroupValue()
+        {
+            return getRadioReferenceDecoder().getTalkgroupValue(mTalkgroup, getCurrentSystem());
+        }
+
+        public void updateTalkgroup()
+        {
+            mTalkgroupProperty.set(getRadioReferenceDecoder().format(mTalkgroup, getCurrentSystem()));
+        }
+
+        public StringProperty aliasProperty()
+        {
+            return mAliasProperty;
+        }
+
+        public StringProperty descriptionProperty()
+        {
+            return mDescriptionProperty;
+        }
+
+        public StringProperty talkgroupProperty()
+        {
+            return mTalkgroupProperty;
+        }
+
+        public Talkgroup getTalkgroup()
+        {
+            return mTalkgroup;
+        }
+
+        public void setAlias(Alias alias)
+        {
+            mAliasProperty.unbind();
+            mAliasProperty.setValue(null);
+            mAlias = alias;
+
+            if(mAlias != null)
+            {
+                mAliasProperty.bind(mAlias.nameProperty());
+            }
+        }
+    }
+
+    /**
+     * Observable list change listener to detect alias changes and update the talkgroup and alias table
+     */
+    public class AliasListChangeListener implements ListChangeListener<Alias>
+    {
+        @Override
+        public void onChanged(ListChangeListener.Change<? extends Alias> change)
+        {
+            while(change.next())
+            {
+                if(change.wasAdded())
+                {
+                    for(Alias alias: change.getAddedSubList())
+                    {
+                        updateAlias(alias);
+                    }
+                }
+                else if(change.wasRemoved())
+                {
+                    for(Alias alias: change.getRemoved())
+                    {
+                        updateAlias(alias);
+                    }
+                }
+                else if(change.wasUpdated())
+                {
+                    for(int x = change.getFrom(); x < change.getTo(); x++)
+                    {
+                        updateAlias(change.getList().get(x));
+                    }
+                }
             }
         }
     }

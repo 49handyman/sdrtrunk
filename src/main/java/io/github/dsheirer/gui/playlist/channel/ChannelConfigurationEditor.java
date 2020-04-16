@@ -27,6 +27,7 @@ import impl.org.controlsfx.autocompletion.SuggestionProvider;
 import io.github.dsheirer.alias.AliasModel;
 import io.github.dsheirer.controller.channel.Channel;
 import io.github.dsheirer.controller.channel.ChannelException;
+import io.github.dsheirer.gui.control.MaxLengthUnaryOperator;
 import io.github.dsheirer.gui.playlist.Editor;
 import io.github.dsheirer.module.decode.DecoderType;
 import io.github.dsheirer.module.decode.config.AuxDecodeConfiguration;
@@ -53,6 +54,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextFormatter;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -572,8 +574,9 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
         if(mAliasListComboBox == null)
         {
             Predicate<String> filterPredicate = s -> !s.contentEquals(AliasModel.NO_ALIAS_LIST);
-            FilteredList<String> filterecChannelList = new FilteredList<>(mPlaylistManager.getAliasModel().aliasListNames(), filterPredicate);
-            mAliasListComboBox = new ComboBox<>(filterecChannelList);
+            FilteredList<String> filteredChannelList =
+                new FilteredList<>(mPlaylistManager.getAliasModel().aliasListNames(), filterPredicate);
+            mAliasListComboBox = new ComboBox<>(filteredChannelList);
             mAliasListComboBox.setPrefWidth(150);
             mAliasListComboBox.setDisable(true);
             mAliasListComboBox.setEditable(true);
@@ -597,18 +600,21 @@ public abstract class ChannelConfigurationEditor extends Editor<Channel>
                 {
                     TextInputDialog dialog = new TextInputDialog();
                     dialog.setTitle("Create New Alias List");
-                    dialog.setHeaderText("New Alias List");
-                    dialog.setContentText("Please enter a name?");
+                    dialog.setHeaderText("Please enter an alias list name (max 25 chars).");
+                    dialog.setContentText("Name:");
+                    dialog.getEditor().setTextFormatter(new TextFormatter<String>(new MaxLengthUnaryOperator(25)));
                     Optional<String> result = dialog.showAndWait();
 
-                    String name = result.get();
+                    result.ifPresent(s -> {
+                        String name = result.get();
 
-                    if(name != null && !name.isEmpty())
-                    {
-                        name = name.trim();
-                        mPlaylistManager.getAliasModel().addAliasList(name);
-                        getAliasListComboBox().getSelectionModel().select(name);
-                    }
+                        if(name != null && !name.isEmpty())
+                        {
+                            name = name.trim();
+                            mPlaylistManager.getAliasModel().addAliasList(name);
+                            getAliasListComboBox().getSelectionModel().select(name);
+                        }
+                    });
                 }
             });
         }

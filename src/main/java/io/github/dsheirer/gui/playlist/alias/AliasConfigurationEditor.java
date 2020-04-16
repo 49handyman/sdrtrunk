@@ -25,6 +25,7 @@ package io.github.dsheirer.gui.playlist.alias;
 import io.github.dsheirer.alias.Alias;
 import io.github.dsheirer.alias.AliasFactory;
 import io.github.dsheirer.alias.AliasModel;
+import io.github.dsheirer.gui.control.MaxLengthUnaryOperator;
 import io.github.dsheirer.icon.Icon;
 import io.github.dsheirer.playlist.PlaylistManager;
 import io.github.dsheirer.preference.UserPreferences;
@@ -44,12 +45,14 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextFormatter;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
@@ -67,6 +70,7 @@ import org.controlsfx.control.textfield.TextFields;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -129,7 +133,9 @@ public class AliasConfigurationEditor extends SplitPane
             }
 
             getAliasListNameComboBox().getSelectionModel().select(aliasList);
+            getAliasTableView().getSelectionModel().clearSelection();
             getAliasTableView().getSelectionModel().select(alias);
+            getAliasTableView().scrollTo(alias);
         }
     }
 
@@ -160,10 +166,18 @@ public class AliasConfigurationEditor extends SplitPane
             }
         }
 
-        getCloneAliasButton().setDisable(alias == null);
+        getCloneAliasButton().setDisable(alias == null || getAliasTableView().getSelectionModel().getSelectedItems().size() > 1);
         getDeleteAliasButton().setDisable(alias == null);
         getMoveToAliasButton().setDisable(alias == null);
-        getAliasItemEditor().setItem(alias);
+
+        if(getAliasTableView().getSelectionModel().getSelectedItems().size() <= 1)
+        {
+            getAliasItemEditor().setItem(alias);
+        }
+        else
+        {
+            getAliasItemEditor().setItem(null);
+        }
     }
 
     private AliasItemEditor getAliasItemEditor()
@@ -252,18 +266,21 @@ public class AliasConfigurationEditor extends SplitPane
             mNewAliasListButton.setOnAction(event -> {
                 TextInputDialog dialog = new TextInputDialog();
                 dialog.setTitle("Create New Alias List");
-                dialog.setHeaderText("New Alias List");
-                dialog.setContentText("Please enter a name?");
+                dialog.setHeaderText("Please enter an alias list name (max 25 chars).");
+                dialog.setContentText("Name:");
+                dialog.getEditor().setTextFormatter(new TextFormatter<String>(new MaxLengthUnaryOperator(25)));
                 Optional<String> result = dialog.showAndWait();
 
-                String name = result.get();
+                result.ifPresent(s -> {
+                    String name = result.get();
 
-                if(name != null && !name.isEmpty())
-                {
-                    name = name.trim();
-                    mPlaylistManager.getAliasModel().addAliasList(name);
-                    getAliasListNameComboBox().getSelectionModel().select(name);
-                }
+                    if(name != null && !name.isEmpty())
+                    {
+                        name = name.trim();
+                        mPlaylistManager.getAliasModel().addAliasList(name);
+                        getAliasListNameComboBox().getSelectionModel().select(name);
+                    }
+                });
             });
         }
 
@@ -322,8 +339,11 @@ public class AliasConfigurationEditor extends SplitPane
             SortedList<Alias> sortedList = new SortedList<>(mAliasFilteredList);
             sortedList.comparatorProperty().bind(mAliasTableView.comparatorProperty());
             mAliasTableView.setItems(sortedList);
+            mAliasTableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
             mAliasTableView.getSelectionModel().selectedItemProperty()
-                .addListener((observable, oldValue, newValue) -> setAlias(newValue));
+                .addListener((observable, oldValue, newValue) -> {
+                    setAlias(newValue);
+                });
         }
 
         return mAliasTableView;
@@ -370,7 +390,11 @@ public class AliasConfigurationEditor extends SplitPane
                 mPlaylistManager.getAliasModel().addAlias(alias);
 
                 //Queue a select alias action to allow table to update filter predicate and display the alias
-                Platform.runLater(() -> getAliasTableView().getSelectionModel().select(alias));
+                Platform.runLater(() -> {
+                    getAliasTableView().getSelectionModel().clearSelection();
+                    getAliasTableView().getSelectionModel().select(alias);
+                    getAliasTableView().scrollTo(alias);
+                });
             });
         }
 
@@ -385,19 +409,23 @@ public class AliasConfigurationEditor extends SplitPane
             mDeleteAliasButton.setDisable(true);
             mDeleteAliasButton.setMaxWidth(Double.MAX_VALUE);
             mDeleteAliasButton.setOnAction(event -> {
-                Alias selected = getAliasTableView().getSelectionModel().getSelectedItem();
 
-                if(selected != null)
+                boolean multiple = getAliasTableView().getSelectionModel().getSelectedItems().size() > 1;
+
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Do you want to delete the selected alias" + (multiple ? "es?" : "?"),
+                    ButtonType.NO, ButtonType.YES);
+                alert.setTitle("Delete Alias");
+                alert.setHeaderText("Are you sure?");
+                alert.initOwner(((Node)getDeleteAliasButton()).getScene().getWindow());
+
+                Optional<ButtonType> result = alert.showAndWait();
+
+                if(result.get() == ButtonType.YES)
                 {
-                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                        "Do you want to delete the selected alias?", ButtonType.NO, ButtonType.YES);
-                    alert.setTitle("Delete Alias");
-                    alert.setHeaderText("Are you sure?");
-                    alert.initOwner(((Node)getDeleteAliasButton()).getScene().getWindow());
+                    List<Alias> selectedAliases = new ArrayList<>(getAliasTableView().getSelectionModel().getSelectedItems());
 
-                    Optional<ButtonType> result = alert.showAndWait();
-
-                    if(result.get() == ButtonType.YES)
+                    for(Alias selected: selectedAliases)
                     {
                         mPlaylistManager.getAliasModel().removeAlias(selected);
                     }
@@ -419,6 +447,7 @@ public class AliasConfigurationEditor extends SplitPane
                 Alias original = getAliasTableView().getSelectionModel().getSelectedItem();
                 Alias copy = AliasFactory.copyOf(original);
                 mPlaylistManager.getAliasModel().addAlias(copy);
+                getAliasTableView().getSelectionModel().clearSelection();
                 getAliasTableView().getSelectionModel().select(copy);
                 getAliasTableView().scrollTo(copy);
             });
@@ -463,9 +492,8 @@ public class AliasConfigurationEditor extends SplitPane
             super(aliasList);
 
             setOnAction(event -> {
-                Alias selected = getAliasTableView().getSelectionModel().getSelectedItem();
-
-                if(selected != null)
+                List<Alias> selectedAliases = new ArrayList<>(getAliasTableView().getSelectionModel().getSelectedItems());
+                for(Alias selected: selectedAliases)
                 {
                     selected.setAliasListName(getText());
                 }

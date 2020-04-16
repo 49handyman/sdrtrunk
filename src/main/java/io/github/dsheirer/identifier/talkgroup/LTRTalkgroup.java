@@ -75,14 +75,14 @@ public class LTRTalkgroup extends TalkgroupIdentifier implements Comparable<LTRT
     }
 
     /**
-     * Creates an LTR-Net identifier from the integer value that contains both the fleet and the ident with a TO role
+     * Creates an LTR identifier from the integer value that contains both the fleet and the ident with a TO role
      */
-    public static LTRTalkgroup encode(int talkgroup)
+    public static LTRTalkgroup create(int talkgroup)
     {
         return new LTRTalkgroup(talkgroup, Role.TO);
     }
 
-    public static int encode(int area, int home, int group)
+    public static int create(int area, int home, int group)
     {
         int value = (area << 13);
         value += (home << 8);

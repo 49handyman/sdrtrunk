@@ -269,9 +269,9 @@ public class AliasModel extends AbstractTableModel
                 FXCollections.sort(mAliasListNames);
             }
         }
-        else
+        else if(!mAliasListNames.contains(NO_ALIAS_LIST))
         {
-            //This list allows users to view unassigned aliases so that they can move them to a valiad alias list, but
+            //This list allows users to view unassigned aliases so that they can move them to a valid alias list, but
             // it is not assignable to a channel
             mAliasListNames.add(NO_ALIAS_LIST);
         }
@@ -296,8 +296,8 @@ public class AliasModel extends AbstractTableModel
 
     /**
      * Retrieves all aliases that match the alias list and have at least one alias ID of the specified type
-     * @param aliasList to search
-     * @param aliasID type to find
+     * @param aliasListName to search
+     * @param type to find
      * @return list of aliases
      */
     public List<Alias> getAliases(String aliasListName, AliasIDType type)

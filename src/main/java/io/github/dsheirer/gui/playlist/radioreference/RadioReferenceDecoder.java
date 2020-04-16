@@ -19,7 +19,10 @@
 
 package io.github.dsheirer.gui.playlist.radioreference;
 
+import io.github.dsheirer.alias.Alias;
 import io.github.dsheirer.identifier.talkgroup.LTRTalkgroup;
+import io.github.dsheirer.identifier.talkgroup.TalkgroupIdentifier;
+import io.github.dsheirer.identifier.talkgroup.UnknownTalkgroupIdentifier;
 import io.github.dsheirer.module.decode.DecoderType;
 import io.github.dsheirer.module.decode.mpt1327.identifier.MPT1327Talkgroup;
 import io.github.dsheirer.module.decode.p25.identifier.talkgroup.APCO25Talkgroup;
@@ -62,36 +65,90 @@ public class RadioReferenceDecoder
         mTagMap = tagMap;
     }
 
-    public String format(Talkgroup talkgroup, System system)
+    /**
+     * Converts radio reference formatted talkgroup values to sdrtrunk decimal format
+     * @param talkgroup to convert
+     * @param system to identify the protocol
+     * @return sdrtrunk formatted decimal value
+     */
+    public int getTalkgroupValue(Talkgroup talkgroup, System system)
     {
         Protocol protocol = getProtocol(system);
 
         switch(protocol)
         {
-            case APCO25:
-                return mUserPreferences.getTalkgroupFormatPreference()
-                    .format(APCO25Talkgroup.create(talkgroup.getDecimalValue()));
             case LTR:
                 int value = talkgroup.getDecimalValue();
                 int area = (value >= 100000 ? 1 : 0);
                 int home = (value / 1000);
                 int group = (value % 1000);
-                return mUserPreferences.getTalkgroupFormatPreference()
-                    .format(LTRTalkgroup.encode(LTRTalkgroup.encode(area, home, group)));
+                return LTRTalkgroup.create(area, home, group);
             case MPT1327:
                 int mptValue = talkgroup.getDecimalValue();
                 int prefix = (mptValue / 10000);
                 int ident = (mptValue % 10000);
-                return mUserPreferences.getTalkgroupFormatPreference()
-                    .format(MPT1327Talkgroup.createTo(prefix, ident));
-            case PASSPORT:
-                return mUserPreferences.getTalkgroupFormatPreference()
-                    .format(PassportTalkgroup.create(talkgroup.getDecimalValue()));
+                return MPT1327Talkgroup.encode(prefix, ident);
             default:
-                mLog.info("Unrecognized Protocol [" + protocol.name() + "] - providing default talkgroup format");
+                return talkgroup.getDecimalValue();
         }
+    }
 
-        return String.valueOf(talkgroup.getDecimalValue());
+    public TalkgroupIdentifier getIdentifier(Talkgroup talkgroup, System system)
+    {
+        Protocol protocol = getProtocol(system);
+        int value = getTalkgroupValue(talkgroup, system);
+
+        switch(protocol)
+        {
+            case APCO25:
+                return APCO25Talkgroup.create(value);
+            case LTR:
+                return LTRTalkgroup.create(value);
+            case MPT1327:
+                return MPT1327Talkgroup.createTo(value);
+            case PASSPORT:
+                return PassportTalkgroup.create(value);
+            default:
+                return UnknownTalkgroupIdentifier.create(value);
+        }
+    }
+
+    /**
+     * Creates a talkgroup alias identifier for the specified radio reference talkgroup and system protocol
+     * @param talkgroup to alias
+     * @param system to identify the protocol
+     * @return aliased talkgroup
+     */
+    public io.github.dsheirer.alias.id.talkgroup.Talkgroup getTalkgroupAliasId(Talkgroup talkgroup, System system)
+    {
+        Protocol protocol = getProtocol(system);
+        int value = getTalkgroupValue(talkgroup, system);
+        return new io.github.dsheirer.alias.id.talkgroup.Talkgroup(protocol, value);
+    }
+
+    /**
+     * Creates an alias for the specified radio reference talkgroup and a talkgroup alias id for the value.
+     * @param talkgroup to alias
+     * @param system to identify the protocol
+     * @param aliasList for the alias
+     * @param group for the alias (optional null)
+     * @return alias
+     */
+    public Alias createAlias(Talkgroup talkgroup, System system, String aliasList, String group)
+    {
+        Alias alias = new Alias(talkgroup.getAlphaTag());
+        alias.setAliasListName(aliasList);
+        alias.setGroup(group);
+        alias.addAliasID(getTalkgroupAliasId(talkgroup, system));
+        return alias;
+    }
+
+    /**
+     * Formats the talkgroup value according to the system's protocol and user preferences
+     */
+    public String format(Talkgroup talkgroup, System system)
+    {
+        return mUserPreferences.getTalkgroupFormatPreference().format(getIdentifier(talkgroup, system));
     }
 
     /**

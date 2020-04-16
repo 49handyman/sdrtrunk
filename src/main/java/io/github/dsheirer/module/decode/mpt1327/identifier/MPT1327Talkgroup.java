@@ -88,7 +88,7 @@ public class MPT1327Talkgroup extends TalkgroupIdentifier
     {
         if(0 < ident && ident <= 8100)
         {
-            return new MPT1327Talkgroup(((prefix << 13) + ident), Role.TO);
+            return new MPT1327Talkgroup(encode(prefix, ident), Role.TO);
         }
         else
         {
@@ -99,7 +99,12 @@ public class MPT1327Talkgroup extends TalkgroupIdentifier
 
     public static MPT1327Talkgroup createTo(int value)
     {
-        return createTo(getPrefix(value), getIdent(value));
+        return new MPT1327Talkgroup(value, Role.TO);
+    }
+
+    public static int encode(int prefix, int ident)
+    {
+        return (prefix << 13) + ident;
     }
 
     public static int getPrefix(int value)

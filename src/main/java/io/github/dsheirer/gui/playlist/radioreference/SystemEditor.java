@@ -192,7 +192,7 @@ public class SystemEditor extends VBox
         if(mSystemListView == null)
         {
             mSystemListView = new ListView<>();
-            mSystemListView.setPrefHeight(100);
+            mSystemListView.setPrefHeight(150);
             mSystemListView.setCellFactory(param -> new SystemListCell());
             mSystemListView.getSelectionModel().selectedItemProperty()
                 .addListener((observable, oldValue, newValue) -> setSystem(newValue));
